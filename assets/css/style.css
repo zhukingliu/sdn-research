@@ -503,6 +503,23 @@ code {
   white-space: pre;
 }
 
+/* ---- Mermaid Diagram Container ---- */
+.mermaid-diagram {
+  background: rgba(0, 200, 255, 0.015);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius);
+  padding: 24px 20px;
+  margin: 24px 0;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.mermaid-diagram:hover {
+  border-color: var(--border-glow);
+  box-shadow: var(--shadow-glow);
+  transition: all var(--transition);
+}
+
 /* ---- Lists ---- */
 ul, ol {
   padding-left: 24px;
