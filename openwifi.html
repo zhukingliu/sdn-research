@@ -227,14 +227,14 @@ graph TB
     end
 
     subgraph CS["☁️ CloudSDK 云控制器层"]
-        OWGW["OWGW<br>网关"]
-        OWSEC["OWSEC<br>安全"]
-        OWFMS["OWFMS<br>固件"]
-        OWPROV["OWPROV<br>配置"]
-        OWANALYTICS["OWANALYTICS<br>分析"]
-        OWSUB["OWSUB<br>订阅"]
-        DASH["Dashboard<br>管理面板"]
-        KAFKA[("Apache Kafka<br>消息队列")]
+        OWGW["OWGW, 网关"]
+        OWSEC["OWSEC, 安全"]
+        OWFMS["OWFMS, 固件"]
+        OWPROV["OWPROV, 配置"]
+        OWANALYTICS["OWANALYTICS, 分析"]
+        OWSUB["OWSUB, 订阅"]
+        DASH["Dashboard, 管理面板"]
+        KAFKA[("Apache Kafka, 消息队列")]
         OWGW -.->|消息| KAFKA
         KAFKA -.->|订阅| OWSEC
         KAFKA -.->|订阅| OWFMS
@@ -244,7 +244,7 @@ graph TB
     end
 
     subgraph UC["🔗 uCentral 协议 (WebSocket / mTLS)"]
-        WSS["WebSocket :15002<br>双向 TLS 认证"]
+        WSS["WebSocket :15002, 双向 TLS 认证"]
     end
 
     subgraph AP["📡 AP 固件层 (APNOS)"]
@@ -667,22 +667,22 @@ sequenceDiagram
         <div class="mermaid-diagram">
           <pre class="mermaid">
 graph TB
-    CONFIG["configuration.json<br>设备配置根"]
+    CONFIG["configuration.json, 设备配置根"]
 
-    CONFIG --> UNIT["unit<br>设备基础信息<br>name / location / timezone"]
-    CONFIG --> IFACES["interfaces[]<br>接口配置数组"]
-    CONFIG --> SERVICES["services<br>系统服务开关"]
-    CONFIG --> METRICS["metrics<br>遥测采集策略"]
-    CONFIG --> RAW["config-raw<br>原始 UCI 透传"]
+    CONFIG --> UNIT["unit, 设备基础信息, name / location / timezone"]
+    CONFIG --> IFACES["interfaces[], 接口配置数组"]
+    CONFIG --> SERVICES["services, 系统服务开关"]
+    CONFIG --> METRICS["metrics, 遥测采集策略"]
+    CONFIG --> RAW["config-raw, 原始 UCI 透传"]
 
-    IFACES --> WAN["WAN 口<br>upstream / PPPoE / DHCP"]
-    IFACES --> LAN["LAN 口<br>downstream / static IP / DHCP server"]
-    IFACES --> SSIDS["ssids[]<br>WiFi 射频配置"]
+    IFACES --> WAN["WAN 口, upstream / PPPoE / DHCP"]
+    IFACES --> LAN["LAN 口, downstream / static IP / DHCP server"]
+    IFACES --> SSIDS["ssids[], WiFi 射频配置"]
 
-    SSIDS --> BAND["wifi-bands<br>2G / 5G / 6G"]
-    SSIDS --> BSS["bss-mode<br>ap / wds-ap / wds-sta / mesh"]
-    SSIDS --> ENC["encryption<br>wpa2 / wpa3 / psk / sae"]
-    SSIDS --> ROAM["roaming<br>802.11k/v/r 参数"]
+    SSIDS --> BAND["wifi-bands, 2G / 5G / 6G"]
+    SSIDS --> BSS["bss-mode, ap / wds-ap / wds-sta / mesh"]
+    SSIDS --> ENC["encryption, wpa2 / wpa3 / psk / sae"]
+    SSIDS --> ROAM["roaming, 802.11k/v/r 参数"]
 
     SERVICES --> LLDP["lldp"]
     SERVICES --> SSH["ssh"]
@@ -803,16 +803,16 @@ graph TB
     end
 
     subgraph APNOS["📡 APNOS (OpenWrt)"]
-        UC["uCentral Client<br>配置管理/命令执行"]
-        OS["OpenSync Agent<br>遥测采集/数据上报"]
-        WIFIDRV["Wi-Fi 驱动<br>hostapd / ath11k"]
+        UC["uCentral Client, 配置管理/命令执行"]
+        OS["OpenSync Agent, 遥测采集/数据上报"]
+        WIFIDRV["Wi-Fi 驱动, hostapd / ath11k"]
         UC --- OS
         OS --- WIFIDRV
     end
 
     subgraph CHIP["🖥️ 芯片平台"]
-        QC2["Qualcomm IPQ8074<br>WiFi 6/7 SoC"]
-        BC2["Broadcom BCM47xx<br>WiFi 6 SoC"]
+        QC2["Qualcomm IPQ8074, WiFi 6/7 SoC"]
+        BC2["Broadcom BCM47xx, WiFi 6 SoC"]
     end
 
     CLOUD -->|"WebSocket / JSON-RPC"| UC
@@ -929,12 +929,12 @@ graph TB
         <div class="mermaid-diagram">
           <pre class="mermaid">
 graph LR
-    CTRL["☁️ CloudSDK<br>统一控制器"]
+    CTRL["☁️ CloudSDK, 统一控制器"]
 
-    AP_A["🔵 厂商 A AP<br>WiFi 6"]
-    AP_B["🟢 厂商 B AP<br>WiFi 6E"]
-    AP_C["🟣 厂商 C AP<br>WiFi 7"]
-    AP_D["🟠 厂商 D AP<br>WiFi 5"]
+    AP_A["🔵 厂商 A AP, WiFi 6"]
+    AP_B["🟢 厂商 B AP, WiFi 6E"]
+    AP_C["🟣 厂商 C AP, WiFi 7"]
+    AP_D["🟠 厂商 D AP, WiFi 5"]
 
     PROTO["📋 uCentral 标准协议"]
     MODEL["📐 统一 JSON Schema 配置模型"]
@@ -1424,10 +1424,10 @@ curl -s https://controller:16002/api/v1/device/AABBCCDDEEFF/state | jq .
         <div class="mermaid-diagram">
           <pre class="mermaid">
 graph LR
-    GW[("🏢 网关<br>互联网出口")]
-    ROOT["📡 Root AP<br>wds-ap 模式<br>5GHz 回程"]
-    LEAF1["📡 Leaf AP-1<br>wds-sta 模式<br>2.4GHz 客户端服务"]
-    LEAF2["📡 Leaf AP-2<br>wds-sta 模式<br>2.4GHz 客户端服务"]
+    GW[("🏢 网关, 互联网出口")]
+    ROOT["📡 Root AP, wds-ap 模式, 5GHz 回程"]
+    LEAF1["📡 Leaf AP-1, wds-sta 模式, 2.4GHz 客户端服务"]
+    LEAF2["📡 Leaf AP-2, wds-sta 模式, 2.4GHz 客户端服务"]
     C1["📱 客户端"]
     C2["💻 客户端"]
     C3["📱 客户端"]
