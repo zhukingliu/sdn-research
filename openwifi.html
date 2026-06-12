@@ -243,8 +243,8 @@ graph TB
         KAFKA -.->|订阅| OWSUB
     end
 
-    subgraph UC["🔗 uCentral 协议 (WebSocket / mTLS)"]
-        WSS["WebSocket :15002, 双向 TLS 认证"]
+    subgraph UC["🔗 uCentral 协议 (WebSocket and mTLS)"]
+        WSS["WebSocket port 15002, 双向 TLS 认证"]
     end
 
     subgraph AP["📡 AP 固件层 (APNOS)"]
@@ -259,7 +259,7 @@ graph TB
         BC["Broadcom 芯片"]
     end
 
-    NB -->|"HTTPS :16002"| CS
+    NB -->|"HTTPS port 16002"| CS
     CS -->|"uCentral"| UC
     UC -->|"JSON 配置/遥测"| AP
     AP -->|"HAL 抽象"| HW
@@ -495,7 +495,7 @@ sequenceDiagram
 
     Note over AP,SDK: Phase 1 - Connection
 
-    AP->>TLS: WebSocket connect + device cert
+    AP->>TLS: WebSocket connect and device cert
     TLS->>OWGW: Mutual mTLS handshake
     OWGW-->>TLS: Cert verified OK
     TLS-->>AP: Secure channel established
@@ -512,10 +512,10 @@ sequenceDiagram
     AP->>AP: Validate JSON Schema
     AP->>AP: ucode render to UCI batch
     alt Config validation failed
-        AP-->>OWGW: ERROR + details
+        AP-->>OWGW: ERROR and details
         OWGW->>AP: Re-send corrected config
     else Config applied OK
-        AP-->>OWGW: Success + config hash
+        AP-->>OWGW: Success and config hash
     end
 
     Note over AP,SDK: Phase 4 - Steady State
@@ -669,19 +669,19 @@ sequenceDiagram
 graph TB
     CONFIG["configuration.json, 设备配置根"]
 
-    CONFIG --> UNIT["unit, 设备基础信息, name / location / timezone"]
+    CONFIG --> UNIT["unit, 设备基础信息, name and location and timezone"]
     CONFIG --> IFACES["interfaces[], 接口配置数组"]
     CONFIG --> SERVICES["services, 系统服务开关"]
     CONFIG --> METRICS["metrics, 遥测采集策略"]
     CONFIG --> RAW["config-raw, 原始 UCI 透传"]
 
-    IFACES --> WAN["WAN 口, upstream / PPPoE / DHCP"]
-    IFACES --> LAN["LAN 口, downstream / static IP / DHCP server"]
+    IFACES --> WAN["WAN 口, upstream and PPPoE and DHCP"]
+    IFACES --> LAN["LAN 口, downstream and static IP and DHCP server"]
     IFACES --> SSIDS["ssids[], WiFi 射频配置"]
 
-    SSIDS --> BAND["wifi-bands, 2G / 5G / 6G"]
-    SSIDS --> BSS["bss-mode, ap / wds-ap / wds-sta / mesh"]
-    SSIDS --> ENC["encryption, wpa2 / wpa3 / psk / sae"]
+    SSIDS --> BAND["wifi-bands, 2G and 5G and 6G"]
+    SSIDS --> BSS["bss-mode, ap and wds-ap and wds-sta and mesh"]
+    SSIDS --> ENC["encryption, wpa2 and wpa3 and psk and sae"]
     SSIDS --> ROAM["roaming, 802.11k/v/r 参数"]
 
     SERVICES --> LLDP["lldp"]
@@ -805,7 +805,7 @@ graph TB
     subgraph APNOS["📡 APNOS (OpenWrt)"]
         UC["uCentral Client, 配置管理/命令执行"]
         OS["OpenSync Agent, 遥测采集/数据上报"]
-        WIFIDRV["Wi-Fi 驱动, hostapd / ath11k"]
+        WIFIDRV["Wi-Fi 驱动, hostapd and ath11k"]
         UC --- OS
         OS --- WIFIDRV
     end
@@ -815,8 +815,8 @@ graph TB
         BC2["Broadcom BCM47xx, WiFi 6 SoC"]
     end
 
-    CLOUD -->|"WebSocket / JSON-RPC"| UC
-    CLOUD -->|"MQTT / Protobuf"| OS
+    CLOUD -->|"WebSocket and JSON-RPC"| UC
+    CLOUD -->|"MQTT and Protobuf"| OS
     APNOS -->|"HAL 抽象层"| CHIP
 
     style CLOUD fill:#0a1628,stroke:rgba(51,102,255,0.4)
@@ -953,9 +953,9 @@ graph LR
     style AP_B fill:#0a1628,stroke:rgba(0,230,118,0.4)
     style AP_C fill:#0a1628,stroke:rgba(124,58,237,0.4)
     style AP_D fill:#0a1628,stroke:rgba(255,171,0,0.4)
-    style PROTO fill:#0c0f17,stroke:rgba(0,230,118,0.3),stroke-dasharray: 5
-    style MODEL fill:#0c0f17,stroke:rgba(0,212,255,0.2),stroke-dasharray: 5
-    style TELEM2 fill:#0c0f17,stroke:rgba(0,212,255,0.2),stroke-dasharray: 5
+    style PROTO fill:#0c0f17,stroke:rgba(0,230,118,0.3)
+    style MODEL fill:#0c0f17,stroke:rgba(0,212,255,0.2)
+    style TELEM2 fill:#0c0f17,stroke:rgba(0,212,255,0.2)
           </pre>
         </div>
 

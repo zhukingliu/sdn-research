@@ -142,7 +142,7 @@ graph TB
 
     subgraph PB["Protocol Buffers"]
         BIN["Binary Serialization"]
-        SCHEMA["Schema-Driven (.proto)"]
+        SCHEMA["Schema-Driven (protobuf)"]
     end
 
     YANG --> RPC
@@ -222,19 +222,19 @@ sequenceDiagram
 
     Note over C,D: Subscribe (STREAM + SAMPLE mode)
 
-    C->>D: SubscribeRequest (path + mode + interval)
-    D-->>C: SubscribeResponse (sync=true, initial snapshot)
+    C->>D: SubscribeRequest (path and mode and interval)
+    D-->>C: SubscribeResponse (sync ok, initial snapshot)
 
     loop Every 5s
         D-->>C: SubscribeResponse (update)
         Note right of C: counters / rates / health
     end
 
-    Note over C,D: Subscribe (STREAM + ON_CHANGE mode)
+    Note over C,D: Subscribe (STREAM + ONCHANGE mode)
 
-    C->>D: SubscribeRequest (path + ON_CHANGE)
-    D-->>C: SubscribeResponse (sync=true, initial state)
-    D-->>C: SubscribeResponse (update: link down!)
+    C->>D: SubscribeRequest (path and ONCHANGE)
+    D-->>C: SubscribeResponse (sync ok, initial state)
+    D-->>C: SubscribeResponse (update: link down)
     Note right of C: Event-driven push
     D-->>C: SubscribeResponse (update: BGP peer changed)
           </pre>
@@ -384,7 +384,7 @@ sudo mv gnmic /usr/local/bin/
         <div class="mermaid-diagram">
           <pre class="mermaid">
 graph TB
-    CTRL["SDN Controller / NMS"]
+    CTRL["SDN Controller and NMS"]
 
     GNMI["gNMI, Telemetry + Config"]
     NETCONF["NETCONF, Transactional Config"]

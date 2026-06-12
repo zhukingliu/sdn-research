@@ -139,7 +139,7 @@ graph TB
     end
 
     subgraph L2["Layer 2: Messages"]
-        RPC["rpc / rpc-reply"]
+        RPC["rpc and rpc-reply"]
         ERR["rpc-error"]
         NOTIF["notification"]
     end
@@ -379,7 +379,7 @@ sequenceDiagram
         <div class="mermaid-diagram">
           <pre class="mermaid">
 graph TB
-    CTRL["SDN Controller, ODL / ONOS / NSO"]
+    CTRL["SDN Controller, ODL and ONOS and NSO"]
 
     subgraph PLUGIN["NETCONF Southbound Plugin"]
         YANG_DYN["Dynamic YANG Mount"]
@@ -389,12 +389,12 @@ graph TB
 
     CTRL --> PLUGIN
 
-    PLUGIN -->|NETCONF over SSH:830| R1["Router-1"]
-    PLUGIN -->|NETCONF over SSH:830| R2["Switch-1"]
-    PLUGIN -->|NETCONF over SSH:830| R3["Firewall-1"]
+    PLUGIN -->|NETCONF over SSH port 830| R1["Router-1"]
+    PLUGIN -->|NETCONF over SSH port 830| R2["Switch-1"]
+    PLUGIN -->|NETCONF over SSH port 830| R3["Firewall-1"]
 
     style CTRL fill:#0a1628,stroke:rgba(0,212,255,0.5),stroke-width:2px
-    style PLUGIN fill:#0c0f17,stroke:rgba(0,230,118,0.3),stroke-dasharray: 5
+    style PLUGIN fill:#0c0f17,stroke:rgba(0,230,118,0.3)
     style R1 fill:#0a1628,stroke:rgba(51,102,255,0.3)
     style R2 fill:#0a1628,stroke:rgba(51,102,255,0.3)
     style R3 fill:#0a1628,stroke:rgba(51,102,255,0.3)
