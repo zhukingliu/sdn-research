@@ -1,18 +1,46 @@
 # SDN Research
 
-SDN (Software Defined Networking) 技术研究仓库，专注于开源网络技术方案的调研与分析。
+SDN (Software Defined Networking) 技术研究仓库，专注于网络协议与开源网络技术方案的深度调研和分析。
 
-## 文档列表
+> 🌐 在线浏览: [https://zhukingliu.github.io/sdn-research/](https://zhukingliu.github.io/sdn-research/)
 
-- [TIP OpenWiFi 开源Wi-Fi系统调研报告](OpenWiFi-调研报告.md) — 全面分析 TIP OpenWiFi 的架构、组件、部署案例与 SDN 研究视角 (2026.06)
+## 📄 调研报告
 
-## 研究方向
+| 报告 | 在线版 | Markdown | 描述 |
+|------|:------:|:--------:|------|
+| **TIP OpenWiFi** | [🌐](openwifi.html) | [📝](OpenWiFi-调研报告.md) | 开源企业级 Wi-Fi 系统架构、CloudSDK、APNOS、uCentral 协议、WiFi 7 |
+| **gNMI** | [🌐](gnmi.html) | [📝](gNMI-调研报告.md) | gRPC 网络管理接口、流式遥测、OpenConfig YANG、AI 网络监控 |
+| **NETCONF** | [🌐](netconf.html) | [📝](NETCONF-调研报告.md) | IETF 标准配置协议、YANG 建模、ACID 事务语义、SDN 集成 |
 
-- 开源 Wi-Fi 系统 (OpenWiFi, OpenWrt 等)
+## 🔬 研究方向
+
+- 网络管理与自动化 (NETCONF / gNMI / RESTCONF)
+- 开源 Wi-Fi 系统 (TIP OpenWiFi / OpenWrt)
 - 软件定义网络 (SDN) 控制平面
 - 网络功能虚拟化 (NFV)
 - 白盒网络设备生态
-- Wi-Fi/蜂窝网络融合
+- AI 训练网络 (RoCE / InfiniBand) 可观测性
+
+## 📁 仓库结构
+
+```
+sdn-research/
+├── index.html                  # 门户首页 (3 张专题卡片)
+├── openwifi.html               # OpenWiFi 完整调研报告
+├── gnmi.html                   # gNMI 完整调研报告
+├── netconf.html                # NETCONF 完整调研报告
+├── OpenWiFi-调研报告.md         # OpenWiFi Markdown 原文
+├── gNMI-调研报告.md             # gNMI Markdown 原文
+├── NETCONF-调研报告.md          # NETCONF Markdown 原文
+├── assets/
+│   ├── css/style.css           # 赛博朋克风格样式
+│   └── js/main.js              # 粒子引擎 + 导航 + 交互
+└── .github/workflows/deploy.yml # GitHub Pages 自动部署
+```
+
+## 🔧 部署
+
+本站基于 GitHub Pages + GitHub Actions 自动部署。
 
 ## 许可
 

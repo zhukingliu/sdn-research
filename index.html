@@ -3,1661 +3,196 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OpenWiFi 调研报告 | SDN Research</title>
-<meta name="description" content="TIP OpenWiFi 开源Wi-Fi系统深度调研报告 — 架构、WiFi 7、CloudSDK、多厂商互操作">
+<title>SDN Research — 网络协议调研</title>
+<meta name="description" content="SDN 技术研究 — OpenWiFi · gNMI · NETCONF 深度调研报告">
 <link rel="stylesheet" href="assets/css/style.css">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
-<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
-<script>
-  mermaid.initialize({
-    startOnLoad: true,
-    theme: 'dark',
-    themeVariables: {
-      primaryColor: '#0c1a2b',
-      primaryTextColor: '#e0e6f0',
-      primaryBorderColor: 'rgba(0,200,255,0.3)',
-      lineColor: 'rgba(0,200,255,0.5)',
-      secondaryColor: '#0a1628',
-      tertiaryColor: '#0c0f17',
-      noteBkgColor: 'rgba(0,200,255,0.06)',
-      noteTextColor: '#8899b4',
-      fontSize: '13px',
-      fontFamily: '"JetBrains Mono","Noto Sans SC",monospace',
-      sequenceNumberColor: '#00d4ff',
-      actorBkg: '#0c1a2b',
-      actorBorder: 'rgba(0,200,255,0.3)',
-      actorTextColor: '#e0e6f0',
-      actorLineColor: 'rgba(0,200,255,0.3)',
-      signalColor: '#8899b4',
-      signalTextColor: '#8899b4',
-      labelBoxBkgColor: '#0c1a2b',
-      labelBoxBorderColor: 'rgba(0,200,255,0.2)',
-      labelTextColor: '#e0e6f0',
-      loopTextColor: '#00d4ff',
-      activationBkgColor: 'rgba(0,200,255,0.08)',
-      activationBorderColor: 'rgba(0,200,255,0.3)',
-    }
-  });
-</script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔬</text></svg>">
+<style>
+  .portal-hero { text-align: center; padding: 60px 0 40px; }
+  .portal-hero h1 { font-size: 2.8rem; margin-bottom: 16px; }
+  .portal-hero .subtitle { color: var(--text-secondary); font-size: 1.15rem; max-width: 700px; margin: 0 auto 32px; }
+  .portal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 24px;
+    margin: 40px 0 60px;
+  }
+  .portal-card {
+    background: var(--gradient-card);
+    border: 1px solid var(--border-card);
+    border-radius: 16px;
+    padding: 36px 32px;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .portal-card:hover {
+    border-color: var(--border-glow);
+    box-shadow: var(--shadow-glow-strong);
+    transform: translateY(-4px);
+  }
+  .portal-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 3px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .portal-card:hover::before { opacity: 1; }
+  .portal-card.wifi::before { background: var(--gradient-cyber); }
+  .portal-card.gnmi::before { background: linear-gradient(135deg, #00e676, #3366ff); }
+  .portal-card.netconf::before { background: linear-gradient(135deg, #ffab00, #7c3aed); }
+  .portal-card .pc-icon {
+    font-size: 48px; margin-bottom: 20px; line-height: 1;
+  }
+  .portal-card .pc-tag {
+    display: inline-block;
+    padding: 3px 10px; border-radius: 12px;
+    font-family: var(--font-mono); font-size: 10px;
+    font-weight: 600; letter-spacing: 0.5px;
+    margin-bottom: 12px; width: fit-content;
+  }
+  .portal-card .pc-tag.wifi { background: rgba(0,212,255,0.1); color: var(--accent-cyan); border: 1px solid rgba(0,212,255,0.2); }
+  .portal-card .pc-tag.gnmi { background: rgba(0,230,118,0.1); color: var(--accent-green); border: 1px solid rgba(0,230,118,0.2); }
+  .portal-card .pc-tag.netconf { background: rgba(255,171,0,0.1); color: var(--accent-amber); border: 1px solid rgba(255,171,0,0.2); }
+  .portal-card h2 {
+    font-family: var(--font-mono); font-size: 1.35rem;
+    font-weight: 700; color: var(--text-primary); margin-bottom: 10px;
+  }
+  .portal-card .pc-desc { color: var(--text-secondary); font-size: 0.92rem; line-height: 1.7; margin-bottom: 16px; flex: 1; }
+  .portal-card .pc-meta {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
+  }
+  .portal-card .pc-arrow {
+    margin-top: 16px; font-family: var(--font-mono); font-size: 12px;
+    color: var(--accent-cyan); transition: transform 0.3s;
+  }
+  .portal-card:hover .pc-arrow { transform: translateX(6px); }
+  .portal-divider {
+    display: flex; align-items: center; gap: 16px; margin: 60px 0 40px;
+    color: var(--text-muted); font-family: var(--font-mono); font-size: 12px;
+    letter-spacing: 1px;
+  }
+  .portal-divider::before, .portal-divider::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,200,255,0.2), transparent);
+  }
+  @media (max-width: 768px) {
+    .portal-hero h1 { font-size: 1.7rem; }
+    .portal-grid { grid-template-columns: 1fr; }
+    .portal-card { padding: 28px 24px; }
+  }
+</style>
 </head>
 <body>
 
 <canvas id="particle-canvas"></canvas>
 
-<!-- Mobile Toggle -->
-<button class="sidebar-toggle" aria-label="Menu">☰</button>
+<main style="position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:40px 24px 80px;">
 
-<!-- Back to Top -->
-<button class="back-to-top" aria-label="Back to top">↑</button>
+  <div class="portal-hero">
+    <div class="hero-badge"><span class="pulse"></span> SDN RESEARCH PORTAL</div>
+    <h1>网络协议深度调研</h1>
+    <p class="subtitle">
+      面向 SDN (软件定义网络) 技术研究的开源协议与架构分析
+    </p>
+  </div>
 
-<div class="app-container">
+  <div class="portal-grid">
 
-  <!-- ============ SIDEBAR ============ -->
-  <aside class="sidebar">
-    <div class="sidebar-header">
-      <a href="#" class="sidebar-logo">
-        <div class="logo-icon">📡</div>
-        <div class="logo-text">SDN Research<small>OpenWiFi Report</small></div>
-      </a>
-    </div>
-    <nav class="sidebar-nav">
-      <div class="nav-section">
-        <div class="nav-section-title">概览</div>
-        <a href="#overview" class="nav-link active"><span class="nav-dot"></span>概述与背景</a>
-        <a href="#architecture" class="nav-link"><span class="nav-dot"></span>核心架构</a>
-        <a href="#cloudsdk" class="nav-link"><span class="nav-dot"></span>CloudSDK 控制器</a>
-        <a href="#apnos" class="nav-link"><span class="nav-dot"></span>AP 固件与 NOS</a>
-      </div>
-      <div class="nav-section">
-        <div class="nav-section-title">协议</div>
-        <a href="#ucentral" class="nav-link"><span class="nav-dot"></span>uCentral 协议</a>
-        <a href="#opensync" class="nav-link"><span class="nav-dot"></span>OpenSync 融合层</a>
-      </div>
-      <div class="nav-section">
-        <div class="nav-section-title">前沿</div>
-        <a href="#wifi7" class="nav-link"><span class="nav-dot"></span>WiFi 7 &amp; 4.0</a>
-        <a href="#interop" class="nav-link"><span class="nav-dot"></span>多厂商互操作</a>
-      </div>
-      <div class="nav-section">
-        <div class="nav-section-title">生态</div>
-        <a href="#deployments" class="nav-link"><span class="nav-dot"></span>部署案例</a>
-        <a href="#ecosystem" class="nav-link"><span class="nav-dot"></span>生态与合作</a>
-        <a href="#comparison" class="nav-link"><span class="nav-dot"></span>方案对比</a>
-      </div>
-      <div class="nav-section">
-        <div class="nav-section-title">开发</div>
-        <a href="#dev-cases" class="nav-link"><span class="nav-dot"></span>实际开发案例</a>
-      </div>
-      <div class="nav-section">
-        <div class="nav-section-title">研究</div>
-        <a href="#sdn-perspective" class="nav-link"><span class="nav-dot"></span>SDN 研究视角</a>
-        <a href="#summary" class="nav-link"><span class="nav-dot"></span>总结与展望</a>
-        <a href="#references" class="nav-link"><span class="nav-dot"></span>参考资源</a>
-      </div>
-    </nav>
-    <div class="sidebar-footer">
-      <span>🟢 v4.0 · 2026.06</span>
-    </div>
-  </aside>
-
-  <!-- ============ MAIN CONTENT ============ -->
-  <main class="main-content">
-
-    <!-- HERO -->
-    <div class="hero reveal">
-      <div class="hero-badge">
-        <span class="pulse"></span> RESEARCH REPORT
-      </div>
-      <h1>TIP OpenWiFi 开源Wi-Fi系统<br>深度调研报告</h1>
-      <p class="hero-subtitle">
-        全面分析 TIP OpenWiFi 的架构设计、核心组件、WiFi 7 新特性、多厂商互操作性、
-        全球部署案例，以及从 SDN 研究视角出发的技术洞察。
+    <!-- OpenWiFi Card -->
+    <a href="openwifi.html" class="portal-card wifi">
+      <div class="pc-icon">📡</div>
+      <span class="pc-tag wifi">Open Source · WiFi 7</span>
+      <h2>TIP OpenWiFi</h2>
+      <p class="pc-desc">
+        开源解耦企业级 Wi-Fi 系统深度调研。涵盖 CloudSDK 微服务架构、
+        APNOS 固件、uCentral 协议数据模型、OpenSync 融合层、
+        WiFi 7 (802.11be) 新特性、多厂商互操作机制、
+        全球部署案例，以及 SDN 控制与转发分离视角的分析。
       </p>
-      <div class="hero-meta">
-        <div class="hero-meta-item"><span class="meta-icon">📅</span> 2026-06-08</div>
-        <div class="hero-meta-item"><span class="meta-icon">📌</span> OpenWiFi 4.0 · WiFi 7</div>
-        <div class="hero-meta-item"><span class="meta-icon">🏢</span> Telecom Infra Project</div>
-        <div class="hero-meta-item"><span class="meta-icon">📄</span> CC BY 4.0</div>
+      <div class="pc-meta">
+        <span>📄 14 章节</span>
+        <span>📅 2026.06</span>
+        <span>🏢 TIP · OpenLAN</span>
       </div>
-      <div style="margin-top:18px;">
-        <span class="tag cyan">OpenWiFi</span>
-        <span class="tag blue">WiFi 7</span>
-        <span class="tag green">SDN</span>
-        <span class="tag purple">Cloud Native</span>
-        <span class="tag cyan">Open Source</span>
-        <span class="tag blue">802.11be</span>
+      <div class="pc-arrow">查看报告 →</div>
+    </a>
+
+    <!-- gNMI Card -->
+    <a href="gnmi.html" class="portal-card gnmi">
+      <div class="pc-icon">⚡</div>
+      <span class="pc-tag gnmi">gRPC · Streaming</span>
+      <h2>gNMI</h2>
+      <p class="pc-desc">
+        gRPC Network Management Interface 深度调研。
+        涵盖 gRPC/HTTP2 传输层、Protobuf 序列化、四大 RPC 操作
+        (Capabilities/Get/Set/Subscribe)、流式遥测 ON_CHANGE 机制、
+        OpenConfig YANG 模型体系、与 NETCONF/SNMP 的对比分析，
+        以及 AI 训练网络中的实战应用。
+      </p>
+      <div class="pc-meta">
+        <span>📄 12 章节</span>
+        <span>📅 2026.06</span>
+        <span>🏢 OpenConfig · Google</span>
       </div>
+      <div class="pc-arrow">查看报告 →</div>
+    </a>
+
+    <!-- NETCONF Card -->
+    <a href="netconf.html" class="portal-card netconf">
+      <div class="pc-icon">🔧</div>
+      <span class="pc-tag netconf">IETF RFC · Transactional</span>
+      <h2>NETCONF</h2>
+      <p class="pc-desc">
+        Network Configuration Protocol 深度调研 (RFC 6241 + NMDA)。
+        涵盖四层架构模型、核心 RPC 操作详解、候选数据存储与 ACID 事务语义
+        (commit/rollback/confirmed-commit)、YANG 数据建模语言、
+        NMDA 扩展、分页新特性，以及 LLM 驱动的意图网络 (IBN) 差距分析。
+      </p>
+      <div class="pc-meta">
+        <span>📄 13 章节</span>
+        <span>📅 2026.06</span>
+        <span>🏢 IETF · RFC 6241</span>
+      </div>
+      <div class="pc-arrow">查看报告 →</div>
+    </a>
+
+  </div>
+
+  <div class="portal-divider">PROTOCOL COMPARISON</div>
+
+  <!-- Quick comparison -->
+  <div class="card" style="text-align:center;">
+    <h3 style="border:none;margin-top:0;">三大协议定位</h3>
+    <div class="table-wrap" style="margin:16px 0;">
+      <table>
+        <thead><tr><th>维度</th><th>OpenWiFi</th><th>gNMI</th><th>NETCONF</th></tr></thead>
+        <tbody>
+          <tr><td><strong>领域</strong></td><td>企业级 Wi-Fi 系统</td><td>网络管理与遥测</td><td>网络配置管理</td></tr>
+          <tr><td><strong>标准化</strong></td><td>TIP 社区 (Apache 2.0)</td><td>OpenConfig (de facto)</td><td>IETF RFC 6241</td></tr>
+          <tr><td><strong>传输</strong></td><td>WebSocket + mTLS</td><td>gRPC/HTTP2</td><td>SSH (port 830)</td></tr>
+          <tr><td><strong>序列化</strong></td><td>JSON</td><td>Protobuf (binary)</td><td>XML</td></tr>
+          <tr><td><strong>核心能力</strong></td><td>解耦 AP 管控 + 云原生</td><td>流式遥测 + 双向配置</td><td>事务性配置管理</td></tr>
+          <tr><td><strong>SDN 角色</strong></td><td>无线 SDN (控制与转发分离)</td><td>南向遥测 + 配置</td><td>南向事务配置</td></tr>
+        </tbody>
+      </table>
     </div>
-
-    <!-- ================================================================ -->
-    <!-- SECTION: Overview -->
-    <!-- ================================================================ -->
-    <section id="overview" data-section>
-      <div class="card reveal">
-        <div class="card-header">
-          <div class="card-icon cyan">📖</div>
-          <h2>1. 概述与背景</h2>
-        </div>
-
-        <h3>1.1 什么是 TIP OpenWiFi</h3>
-        <p>
-          <strong>TIP OpenWiFi</strong> 是由 <strong>Telecom Infra Project (TIP)</strong> 旗下的 Open Converged Wireless (OCW) 项目组于 2021 年 5 月推出的<strong>开源、社区驱动、解耦的企业级 Wi-Fi 软件系统</strong>。
-          它是 TIP OpenLAN 工作组孵化的首个开源项目，核心使命是<strong>"让优质 Wi-Fi 体验民主化" (Democratize Premium Wi-Fi Experiences)</strong>。
-        </p>
-        <blockquote>
-          OpenWiFi 被业界描述为 "全球首个 CI/CD 开源 Wi-Fi 生态系统"，具备每日构建 (Nightly Build) 和自动化 RF 暗室测试能力。
-        </blockquote>
-        <p>
-          OpenWiFi 将无线通信领域 <strong>"Open RAN"</strong> 的理念引入 Wi-Fi 世界——通过软硬件完全解耦，打破传统闭源厂商锁定，实现控制平面与数据平面的彻底分离。
-        </p>
-
-        <h3>1.2 项目发展里程碑</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>时间</th><th>里程碑</th></tr></thead>
-            <tbody>
-              <tr><td>2021年5月</td><td>TIP OCW 项目组正式启动 OpenWiFi</td></tr>
-              <tr><td>2021–2022</td><td>OpenWiFi 1.0 / 2.0 发布，支持 WiFi 5 / 6</td></tr>
-              <tr><td>2022年11月</td><td>都柏林市政府 + Virgin Media 完成 WiFi4EU 试点</td></tr>
-              <tr><td>2023年</td><td>Boingo 首次商业 WiFi 6E OpenWiFi 部署</td></tr>
-              <tr><td>2024年</td><td>OpenWiFi 社区参与者突破 300 家</td></tr>
-              <tr><td>2025年</td><td>Edgecore Wi-Fi 发布全栈 OpenWiFi POC Kit</td></tr>
-              <tr><td><strong>2025年</strong></td><td><strong>OpenWiFi 4.0 发布，正式支持 WiFi 7</strong></td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3>1.3 核心设计原则</h3>
-        <div class="feature-grid">
-          <div class="feature-item">
-            <div class="fi-icon">🔓</div>
-            <h4>完全解耦</h4>
-            <p>AP 硬件、AP 固件 (NOS)、云控制器 (CloudSDK) 各自独立，可任意混配</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">🔌</div>
-            <h4>开放接口</h4>
-            <p>基于 OpenAPI 标准的 RESTful 北向接口，支持任意第三方系统集成</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">🔄</div>
-            <h4>多厂商互操作</h4>
-            <p>不同品牌 AP 可接入同一套云控制器，统一的 uCentral 协议确保兼容</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">☁️</div>
-            <h4>云原生部署</h4>
-            <p>Docker Compose / Kubernetes (Helm) 一键部署，弹性伸缩</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">🐙</div>
-            <h4>社区驱动</h4>
-            <p>全部代码托管于 GitHub，Apache-2.0 许可证，300+ 企业参与</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">🧪</div>
-            <h4>CI/CD 测试</h4>
-            <p>每日自动化构建 + RF 暗室测试，持续验证互操作性与性能</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <hr class="section-divider">
-
-    <!-- ================================================================ -->
-    <!-- SECTION: Architecture -->
-    <!-- ================================================================ -->
-    <section id="architecture" data-section>
-      <div class="card reveal">
-        <div class="card-header">
-          <div class="card-icon blue">🏗️</div>
-          <h2>2. 核心架构</h2>
-        </div>
-
-        <h3>2.1 三层架构总览</h3>
-        <div class="mermaid-diagram">
-          <pre class="mermaid">
-graph TB
-    subgraph NB["🌐 北向 REST API (OpenAPI)"]
-        OSS["OSS/BSS 系统"]
-        PORTAL["Portal"]
-        THIRD["第三方集成"]
-    end
-
-    subgraph CS["☁️ CloudSDK 云控制器层"]
-        OWGW["OWGW<br/>网关"]
-        OWSEC["OWSEC<br/>安全"]
-        OWFMS["OWFMS<br/>固件"]
-        OWPROV["OWPROV<br/>配置"]
-        OWANALYTICS["OWANALYTICS<br/>分析"]
-        OWSUB["OWSUB<br/>订阅"]
-        DASH["Dashboard<br/>管理面板"]
-        KAFKA[("Apache Kafka<br/>消息队列")]
-        OWGW -.->|消息| KAFKA
-        KAFKA -.->|订阅| OWSEC
-        KAFKA -.->|订阅| OWFMS
-        KAFKA -.->|订阅| OWPROV
-        KAFKA -.->|订阅| OWANALYTICS
-        KAFKA -.->|订阅| OWSUB
-    end
-
-    subgraph UC["🔗 uCentral 协议 (WebSocket / mTLS)"]
-        WSS["WebSocket :15002<br/>双向 TLS 认证"]
-    end
-
-    subgraph AP["📡 AP 固件层 (APNOS)"]
-        OWRT["OpenWrt 基础"]
-        OSYNC["OpenSync 融合层"]
-        WIFI["WiFi 4/5/6/6E/7 驱动"]
-        OWRT --- OSYNC --- WIFI
-    end
-
-    subgraph HW["🖥️ 白盒 AP 硬件层"]
-        QC["Qualcomm 芯片"]
-        BC["Broadcom 芯片"]
-    end
-
-    NB -->|"HTTPS :16002"| CS
-    CS -->|"uCentral"| UC
-    UC -->|"JSON 配置/遥测"| AP
-    AP -->|"HAL 抽象"| HW
-
-    style NB fill:#0a1628,stroke:rgba(0,212,255,0.4),stroke-width:1px
-    style CS fill:#0a1628,stroke:rgba(51,102,255,0.4),stroke-width:1px
-    style UC fill:#0a1628,stroke:rgba(0,230,118,0.4),stroke-width:1px
-    style AP fill:#0a1628,stroke:rgba(124,58,237,0.4),stroke-width:1px
-    style HW fill:#0a1628,stroke:rgba(136,153,180,0.3),stroke-width:1px
-    style KAFKA fill:#0c0f17,stroke:rgba(0,212,255,0.3)
-          </pre>
-        </div>
-
-        <h3>2.2 三大核心组件</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>组件</th><th>描述</th></tr></thead>
-            <tbody>
-              <tr>
-                <td><strong>开源 AP 固件 (APNOS)</strong></td>
-                <td>基于 OpenWrt 的企业级 AP 网络操作系统，支持 Qualcomm 主流 Wi-Fi 芯片平台，提供从 WiFi 4 到 WiFi 7 的全代际支持</td>
-              </tr>
-              <tr>
-                <td><strong>CloudSDK 云控制器</strong></td>
-                <td>云原生、开源的 Wi-Fi 管控平台，微服务架构，提供 OpenAPI 标准的 RESTful 北向接口 (NBI)</td>
-              </tr>
-              <tr>
-                <td><strong>OpenSync 中间层</strong></td>
-                <td>开源网关/路由/设备固件中间层，提供跨芯片平台的灵活控制与标准化遥测接口</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3>2.3 内部通信机制</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>通信路径</th><th>协议</th><th>端口</th></tr></thead>
-            <tbody>
-              <tr><td>AP ↔ 控制器</td><td>uCentral 协议 (WebSocket + 双向 TLS)</td><td>15002</td></tr>
-              <tr><td>控制器微服务间</td><td>Apache Kafka 消息队列</td><td>—</td></tr>
-              <tr><td>北向 API</td><td>OpenAPI RESTful (HTTPS)</td><td>16002</td></tr>
-              <tr><td>遥测数据推送</td><td>MQTT</td><td>—</td></tr>
-              <tr><td>远程终端</td><td>RTTY</td><td>5912 / 5913</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <hr class="section-divider">
-
-    <!-- ================================================================ -->
-    <!-- SECTION: CloudSDK -->
-    <!-- ================================================================ -->
-    <section id="cloudsdk" data-section>
-      <div class="card reveal">
-        <div class="card-header">
-          <div class="card-icon purple">☁️</div>
-          <h2>3. CloudSDK 云控制器</h2>
-        </div>
-        <p>
-          CloudSDK 是 OpenWiFi 的云端管控核心，采用<strong>微服务架构</strong>，通过 Docker Compose 或 Helm Charts 在云环境中部署。
-          所有微服务均通过 <strong>OpenAPI (RESTful)</strong> 定义北向接口，使用 <strong>Kafka</strong> 消息队列进行内部通信。
-        </p>
-
-        <h3>3.1 微服务组件详解</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>微服务</th><th>全称</th><th>功能</th></tr></thead>
-            <tbody>
-              <tr><td><strong>OWGW</strong></td><td>OpenWiFi Gateway</td><td>设备网关核心，管理与 AP 的 uCentral 协议 WebSocket 通信</td></tr>
-              <tr><td><strong>OWSEC</strong></td><td>OpenWiFi Security</td><td>基于 RBAC 的角色访问控制，用户认证与授权</td></tr>
-              <tr><td><strong>OWFMS</strong></td><td>OpenWiFi Firmware Management</td><td>固件版本管理与 OTA 升级编排，支持分批灰度发布</td></tr>
-              <tr><td><strong>OWPROV</strong></td><td>OpenWiFi Provisioning</td><td>设备零接触配置 (ZTP)，证书管理与配置下发</td></tr>
-              <tr><td><strong>OWANALYTICS</strong></td><td>OpenWiFi Analytics</td><td>遥测数据分析、可视化与告警</td></tr>
-              <tr><td><strong>OWSUB</strong></td><td>OpenWiFi Subscription</td><td>用户/租户订阅管理，多租户隔离</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3>3.2 关键功能清单</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>功能</th><th>描述</th></tr></thead>
-            <tbody>
-              <tr><td><strong>零接触部署 (ZTP)</strong></td><td>AP 上电自动发现控制器、自动下载证书、自动配置上线</td></tr>
-              <tr><td><strong>固件管理</strong></td><td>集中式 OTA 固件升级，支持分批灰度发布策略</td></tr>
-              <tr><td><strong>数据模型驱动配置</strong></td><td>基于模板的设备配置下发，配置变更哈希校验确保一致性</td></tr>
-              <tr><td><strong>RADIUS 管理</strong></td><td>支持 Enterprise WPA2 / WPA3 的 RADIUS 认证配置</td></tr>
-              <tr><td><strong>RRM 射频控制</strong></td><td>自动信道选择、功率控制、BSS 色彩管理、客户端引导</td></tr>
-              <tr><td><strong>客户端漫游</strong></td><td>802.11k (定向引导) · 802.11v (网络辅助漫游) · 802.11r (快速 BSS 切换)</td></tr>
-              <tr><td><strong>远程排障</strong></td><td>Syslog、合成客户端、远程 Shell (RTTY)、远程抓包、飞行记录器</td></tr>
-              <tr><td><strong>MQTT 遥测</strong></td><td>实时推送客户端 / AP / 网络层面的性能指标</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3>3.3 部署方式</h3>
-        <div class="terminal">
-          <div class="terminal-header">
-            <span class="terminal-dot red"></span>
-            <span class="terminal-dot yellow"></span>
-            <span class="terminal-dot green"></span>
-            <span class="terminal-title">Deployment Options</span>
-          </div>
-          <div class="terminal-body"><span class="comment"># GitHub Repository</span>
-git clone https://github.com/Telecominfraproject/wlan-cloud-ucentralgw
-
-<span class="comment"># Development / POC</span>
-docker compose up -d
-
-<span class="comment"># Production (Kubernetes)</span>
-helm install openwifi ./charts/openwifi -n openwifi --create-namespace</div>
-        </div>
-      </div>
-    </section>
-
-    <hr class="section-divider">
-
-    <!-- ================================================================ -->
-    <!-- SECTION: APNOS -->
-    <!-- ================================================================ -->
-    <section id="apnos" data-section>
-      <div class="card reveal">
-        <div class="card-header">
-          <div class="card-icon green">📡</div>
-          <h2>4. AP 固件与 NOS</h2>
-        </div>
-
-        <h3>4.1 APNOS 概述</h3>
-        <p>
-          OpenWiFi 接入点运行 <strong>APNOS (AP Network Operating System)</strong>，基于 <strong>OpenWrt</strong> 构建，
-          专门针对企业级 Wi-Fi 场景进行深度定制和优化。固件通过双 Bank Bootloader 实现安全升级，升级失败自动回退。
-        </p>
-
-        <h3>4.2 无线功能矩阵</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>功能</th><th>WiFi 4 (n)</th><th>WiFi 5 (ac)</th><th>WiFi 6 (ax)</th><th>WiFi 6E</th><th>WiFi 7</th></tr></thead>
-            <tbody>
-              <tr><td>基础连接</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
-              <tr><td>BSS Coloring</td><td>—</td><td>—</td><td>✅</td><td>✅</td><td>✅</td></tr>
-              <tr><td>UL/DL OFDMA</td><td>—</td><td>—</td><td>✅</td><td>✅</td><td>✅</td></tr>
-              <tr><td>1024-QAM</td><td>—</td><td>—</td><td>✅</td><td>✅</td><td>✅</td></tr>
-              <tr><td><strong>4096-QAM</strong></td><td>—</td><td>—</td><td>—</td><td>—</td><td>✅</td></tr>
-              <tr><td>6GHz 频段</td><td>—</td><td>—</td><td>—</td><td>✅</td><td>✅</td></tr>
-              <tr><td><strong>MLO (多链路操作)</strong></td><td>—</td><td>—</td><td>—</td><td>—</td><td>✅</td></tr>
-              <tr><td><strong>Preamble Puncturing</strong></td><td>—</td><td>—</td><td>—</td><td>—</td><td>✅</td></tr>
-              <tr><td>Channel Switch Announcement</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3>4.3 组网与安全</h3>
-        <div class="feature-grid">
-          <div class="feature-item">
-            <div class="fi-icon">🌐</div><h4>多拓扑支持</h4><p>桥接 · VLAN · NAT 网关 · 本地分流 · Overlay 组网</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">🔐</div><h4>企业安全</h4><p>WPA2/WPA3 (Personal + Enterprise) · PMF · Passpoint® R2+</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">🏢</div><h4>运营商级</h4><p>802.1Q VLAN 每 SSID · 速率限制 · 空口公平性 · 双 Bank 启动</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">📱</div><h4>用户服务</h4><p>OpenRoaming · Captive Portal · 客户端会话信令无缝漫游</p>
-          </div>
-        </div>
-
-        <h3>4.4 Maverick 离线模式</h3>
-        <p>AP 出厂后首次上电无法连接云端时，自动进入 Maverick 模式：</p>
-        <div class="terminal">
-          <div class="terminal-header">
-            <span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span>
-            <span class="terminal-title">Maverick Mode</span>
-          </div>
-          <div class="terminal-body"><span class="comment"># 本地 SSID</span>
-SSID: Maverick
-
-<span class="comment"># 本地管理入口</span>
-URL:  http://192.168.1.1
-User: root
-Pass: openwifi
-
-<span class="comment"># 支持配置项</span>
-- WAN 连接 (PPPoE / 4G-5G APN / 静态 IP)
-- 云端控制器地址
-- 设备证书上传</div>
-        </div>
-      </div>
-    </section>
-
-    <hr class="section-divider">
-
-    <!-- ================================================================ -->
-    <!-- SECTION: uCentral -->
-    <!-- ================================================================ -->
-    <section id="ucentral" data-section>
-      <div class="card reveal">
-        <div class="card-header">
-          <div class="card-icon cyan">🔗</div>
-          <h2>5. uCentral 通信协议</h2>
-        </div>
-        <p>
-          uCentral 是 OpenWiFi 定义的 <strong>AP 设备与云控制器之间的标准管理协议</strong>，是实现多厂商互操作性的核心基础。
-          协议基于 JSON 数据模型，通过 WebSocket + 双向 TLS (DigiCert 证书) 确保安全通信。
-        </p>
-
-        <h3>5.1 协议规格</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>特性</th><th>描述</th></tr></thead>
-            <tbody>
-              <tr><td>传输层</td><td>WebSocket (端口 15002)</td></tr>
-              <tr><td>安全层</td><td>双向 TLS (DigiCert 设备证书)</td></tr>
-              <tr><td>数据格式</td><td>JSON</td></tr>
-              <tr><td>设备标识</td><td>每台 AP 具有唯一序列号 ID</td></tr>
-              <tr><td>配置模式</td><td>数据模型驱动，基于设备能力协商</td></tr>
-              <tr><td>配置一致性</td><td>配置变更生成唯一哈希值，设备上报状态时校验</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3>5.2 工作流程</h3>
-        <div class="mermaid-diagram">
-          <pre class="mermaid">
-sequenceDiagram
-    participant AP as 📡 AP Device
-    participant TLS as 🔐 TLS Layer
-    participant OWGW as ☁️ OWGW Gateway
-    participant SDK as 🗄️ CloudSDK
-
-    Note over AP,SDK: Phase 1: Connection Establishment
-
-    AP->>TLS: 发起 WebSocket 连接 (携带 DigiCert 设备证书)
-    TLS->>OWGW: 双向 mTLS 握手验证
-    OWGW-->>TLS: 证书验证通过
-    TLS-->>AP: 安全通道建立 (端口 15002)
-
-    Note over AP,SDK: Phase 2: Capability Negotiation
-
-    AP->>OWGW: 上报设备能力 (Capability Report)<br/>芯片型号 / 无线频段 / 接口类型
-    OWGW->>SDK: 存储设备能力信息
-    SDK->>OWGW: 匹配设备配置模板
-
-    Note over AP,SDK: Phase 3: Configuration Provisioning
-
-    OWGW->>AP: 下发完整 JSON 配置 (Configuration)
-    AP->>AP: uCentral Agent 校验 JSON Schema
-    AP->>AP: ucode 模板渲染 → UCI 批次写入
-    alt 配置校验失败
-        AP-->>OWGW: ERROR 消息 + 错误详情
-        OWGW->>AP: 重新下发修正配置
-    else 配置成功
-        AP-->>OWGW: 配置应用成功 + 配置哈希值
-    end
-
-    Note over AP,SDK: Phase 4: Steady State Operation
-
-    loop 定期上报 (≥60s)
-        AP->>OWGW: 遥测数据 (Statistics / Health / WiFi Frames)
-        OWGW->>SDK: 发布到 Kafka 消息总线
-    end
-
-    Note over AP,SDK: Phase 5: Configuration Update
-
-    SDK->>OWGW: 配置变更事件
-    OWGW->>AP: PUSH 新配置 (增量或全量)
-    AP->>AP: 比对配置哈希 → 应用变更
-    AP-->>OWGW: 确认新配置生效
-          </pre>
-        </div>
-
-        <h3>5.3 协议消息格式</h3>
-        <p>
-          uCentral 使用 <strong>JSON-RPC 2.0</strong> 风格的消息结构。所有消息包含统一的信封格式，
-          通过 <code>method</code> 字段区分命令类型，<code>params</code> 承载具体的配置或状态数据。
-        </p>
-
-        <h4>核心命令类型</h4>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>命令</th><th>描述</th><th>触发方</th></tr></thead>
-            <tbody>
-              <tr><td><code>configure</code></td><td>下发完整设备配置 JSON</td><td>控制器 → AP</td></tr>
-              <tr><td><code>reboot</code></td><td>重启设备</td><td>控制器 → AP</td></tr>
-              <tr><td><code>factory</code></td><td>恢复出厂设置</td><td>控制器 → AP</td></tr>
-              <tr><td><code>upgrade</code></td><td>触发固件升级 (指定 URL)</td><td>控制器 → AP</td></tr>
-              <tr><td><code>leds</code></td><td>控制设备 LED 指示灯 (定位用)</td><td>控制器 → AP</td></tr>
-              <tr><td><code>trace</code></td><td>开启远程抓包调试</td><td>控制器 → AP</td></tr>
-              <tr><td><code>request</code></td><td>主动请求设备状态/健康检查</td><td>控制器 → AP</td></tr>
-              <tr><td><code>telemetry</code></td><td>定期上报遥测数据</td><td>AP → 控制器</td></tr>
-              <tr><td><code>capabilities</code></td><td>上报设备能力</td><td>AP → 控制器 (首次连接)</td></tr>
-              <tr><td><code>crashlog</code></td><td>上报崩溃日志</td><td>AP → 控制器 (异常后)</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h4>配置消息示例</h4>
-        <div class="terminal">
-          <div class="terminal-header">
-            <span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span>
-            <span class="terminal-title">uCentral configure 消息 — Controller → AP</span>
-          </div>
-          <div class="terminal-body"><span class="comment">// 控制器下发 SSID + VLAN 配置</span>
-{
-  <span class="cmd">"jsonrpc"</span>: "2.0",
-  <span class="cmd">"method"</span>: "configure",
-  <span class="cmd">"id"</span>: "req-0001",
-  <span class="cmd">"params"</span>: {
-    <span class="cmd">"serial"</span>: "AABBCCDDEEFF",
-    <span class="cmd">"uuid"</span>: 1234,
-    <span class="cmd">"when"</span>: 0,
-    <span class="cmd">"configuration"</span>: {
-      <span class="cmd">"unit"</span>: {
-        <span class="cmd">"name"</span>: "Office-AP-01",
-        <span class="cmd">"location"</span>: "Building-A Floor-3",
-        <span class="cmd">"timezone"</span>: "CST-8"
-      },
-      <span class="cmd">"interfaces"</span>: [
-        {
-          <span class="cmd">"name"</span>: "LAN",
-          <span class="cmd">"role"</span>: "downstream",
-          <span class="cmd">"ssids"</span>: [
-            {
-              <span class="cmd">"name"</span>: "Corporate-WiFi",
-              <span class="cmd">"wifi-bands"</span>: ["5G", "2G"],
-              <span class="cmd">"bss-mode"</span>: "ap",
-              <span class="cmd">"encryption"</span>: {
-                <span class="cmd">"proto"</span>: "wpa3",
-                <span class="cmd">"key"</span>: "********",
-                <span class="cmd">"ieee80211w"</span>: "required"
-              },
-              <span class="cmd">"rates"</span>: {
-                <span class="cmd">"beacon"</span>: 6000,
-                <span class="cmd">"multicast"</span>: 24000
-              }
-            }
-          ]
-        }
-      ],
-      <span class="cmd">"services"</span>: {
-        <span class="cmd">"lldp"</span>: { <span class="cmd">"enable"</span>: true },
-        <span class="cmd">"ssh"</span>: { <span class="cmd">"enable"</span>: true, <span class="cmd">"port"</span>: 22 }
-      }
-    },
-    <span class="cmd">"hash"</span>: "a1b2c3d4e5f6..."
-  }
-}</div>
-        </div>
-
-        <h4>遥测消息示例</h4>
-        <div class="terminal">
-          <div class="terminal-header">
-            <span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span>
-            <span class="terminal-title">uCentral telemetry 消息 — AP → Controller</span>
-          </div>
-          <div class="terminal-body"><span class="comment">// AP 定期上报遥测数据</span>
-{
-  <span class="cmd">"jsonrpc"</span>: "2.0",
-  <span class="cmd">"method"</span>: "telemetry",
-  <span class="cmd">"params"</span>: {
-    <span class="cmd">"serial"</span>: "AABBCCDDEEFF",
-    <span class="cmd">"data"</span>: {
-      <span class="cmd">"statistics"</span>: {
-        <span class="cmd">"ssids"</span>: [
-          { <span class="cmd">"name"</span>: "Corporate-WiFi",
-            <span class="cmd">"clients"</span>: 47,
-            <span class="cmd">"channel"</span>: 36,
-            <span class="cmd">"tx_bytes"</span>: 482910482,
-            <span class="cmd">"rx_bytes"</span>: 128394022,
-            <span class="cmd">"noise"</span>: -92,
-            <span class="cmd">"channel_utilization"</span>: 34.5 }
-        ]
-      },
-      <span class="cmd">"health"</span>: {
-        <span class="cmd">"sanity"</span>: 100,
-        <span class="cmd">"cpu"</span>: 12.3,
-        <span class="cmd">"memory_used"</span>: 65536,
-        <span class="cmd">"temperature"</span>: 52,
-        <span class="cmd">"uptime"</span>: 864000
-      },
-      <span class="cmd">"clients"</span>: [
-        { <span class="cmd">"mac"</span>: "11:22:33:44:55:66",
-          <span class="cmd">"ssid"</span>: "Corporate-WiFi",
-          <span class="cmd">"rssi"</span>: -48,
-          <span class="cmd">"rx_rate"</span>: 866,
-          <span class="cmd">"tx_rate"</span>: 650,
-          <span class="cmd">"ip"</span>: "192.168.10.55" }
-      ]
-    }
-  }
-}</div>
-        </div>
-
-        <h3>5.4 数据模型详解 (wlan-ucentral-schema)</h3>
-        <p>
-          OpenWiFi 的完整数据模型定义在 GitHub 仓库
-          <a href="https://github.com/Telecominfraproject/wlan-ucentral-schema" target="_blank" rel="noopener">Telecominfraproject/wlan-ucentral-schema</a> 中，
-          由 <strong>JSON Schema</strong> 和 <strong>ucode 模板 (.utpl)</strong> 两类文件组成。
-        </p>
-
-        <h4>数据模型顶层结构</h4>
-        <div class="mermaid-diagram">
-          <pre class="mermaid">
-graph TB
-    CONFIG["configuration.json<br/>设备配置根"]
-
-    CONFIG --> UNIT["unit<br/>设备基础信息<br/>name / location / timezone"]
-    CONFIG --> IFACES["interfaces[]<br/>接口配置数组"]
-    CONFIG --> SERVICES["services<br/>系统服务开关"]
-    CONFIG --> METRICS["metrics<br/>遥测采集策略"]
-    CONFIG --> RAW["config-raw<br/>原始 UCI 透传"]
-
-    IFACES --> WAN["WAN 口<br/>upstream / PPPoE / DHCP"]
-    IFACES --> LAN["LAN 口<br/>downstream / static IP / DHCP server"]
-    IFACES --> SSIDS["ssids[]<br/>WiFi 射频配置"]
-
-    SSIDS --> BAND["wifi-bands<br/>2G / 5G / 6G"]
-    SSIDS --> BSS["bss-mode<br/>ap / wds-ap / wds-sta / mesh"]
-    SSIDS --> ENC["encryption<br/>wpa2 / wpa3 / psk / sae"]
-    SSIDS --> ROAM["roaming<br/>802.11k/v/r 参数"]
-
-    SERVICES --> LLDP["lldp"]
-    SERVICES --> SSH["ssh"]
-    SERVICES --> NTP["ntp"]
-    SERVICES --> IGMP["igmp"]
-    SERVICES --> RADIUS["radius-proxy"]
-
-    METRICS --> STATS["statistics"]
-    METRICS --> HEALTH["healthchecks"]
-    METRICS --> DHCP["dhcp-snooping"]
-    METRICS --> FRAMES["wifi-frames"]
-    METRICS --> CRASH["crashlogs"]
-
-    style CONFIG fill:#0a1628,stroke:rgba(0,212,255,0.5),stroke-width:2px
-    style UNIT fill:#0a1628,stroke:rgba(51,102,255,0.3)
-    style IFACES fill:#0a1628,stroke:rgba(0,230,118,0.3)
-    style SERVICES fill:#0a1628,stroke:rgba(124,58,237,0.3)
-    style METRICS fill:#0a1628,stroke:rgba(255,171,0,0.3)
-    style RAW fill:#0a1628,stroke:rgba(136,153,180,0.3)
-          </pre>
-        </div>
-
-        <h4>UCI 渲染机制</h4>
-        <p>
-          uCentral Agent 接收到 JSON 配置后，通过 <strong>ucode 模板</strong> 将 JSON 数据渲染为
-          <strong>UCI (Unified Configuration Interface)</strong> 批次命令，这是 OpenWrt 的标准配置机制：
-        </p>
-        <div class="terminal">
-          <div class="terminal-header">
-            <span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span>
-            <span class="terminal-title">JSON → UCI 渲染流程</span>
-          </div>
-          <div class="terminal-body"><span class="comment"># Step 1: uCentral Agent 接收 JSON 配置</span>
-INPUT: {"unit":{"name":"AP-01","location":"Floor-3"},...}
-
-<span class="comment"># Step 2: ucode 模板渲染 (wlan-ucentral-schema/*.utpl)</span>
-<span class="comment"># 模板示例 — /usr/share/ucentral/unit.utpl:</span>
-<span class="prompt">{%</span> =  let cfg = ctx.unit;
-<span class="prompt">{%</span> =  uci.set('system.@system[0].hostname', cfg.name);
-<span class="prompt">{%</span> =  uci.set('system.@system[0].location', cfg.location);
-<span class="prompt">{%</span> =  uci.set('system.@system[0].timezone', cfg.timezone);
-
-<span class="comment"># Step 3: 生成 UCI 批次命令</span>
-uci set system.@system[0].hostname='AP-01'
-uci set system.@system[0].location='Floor-3'
-uci set wireless.@wifi-iface[0].ssid='Corporate-WiFi'
-uci set wireless.@wifi-iface[0].encryption='sae'
-uci commit wireless
-reload_config
-
-<span class="comment"># Step 4: procd 检测配置变更，重启相关服务 (hostapd 等)</span></div>
-        </div>
-
-        <h4>配置哈希校验机制</h4>
-        <p>
-          每次下发配置时，控制器会附带一个 <strong>MD5 配置哈希值</strong>。AP 应用配置后，
-          将自身计算的实际哈希值与控制器下发的哈希值进行比对：
-        </p>
-        <div class="terminal">
-          <div class="terminal-header">
-            <span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span>
-            <span class="terminal-title">Hash Comparison Flow</span>
-          </div>
-          <div class="terminal-body"><span class="prompt">Controller:</span>
-  config_hash = md5(config_json)
-  → 下发配置 + hash (via WebSocket)
-
-<span class="prompt">AP:</span>
-  received_json → apply_config()
-  actual_hash = md5(applied_config)
-  if actual_hash == received_hash:
-      → 上报 state: "configured", hash: actual_hash
-  else:
-      → 上报 state: "mismatch", hash: actual_hash
-      → 触发控制器重新下发全量配置</div>
-        </div>
-
-        <h4>Telemetry 配置策略</h4>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>策略字段</th><th>默认间隔</th><th>描述</th></tr></thead>
-            <tbody>
-              <tr><td><code>interval</code></td><td>60s</td><td>遥测上报基础间隔 (最短 30s)</td></tr>
-              <tr><td><code>statistics</code></td><td>60s</td><td>SSID / 客户端统计信息</td></tr>
-              <tr><td><code>healthchecks</code></td><td>120s</td><td>CPU / 内存 / 温度 / 网络连通性</td></tr>
-              <tr><td><code>wifi-frames</code></td><td>300s</td><td>802.11 管理帧捕获 (调试模式)</td></tr>
-              <tr><td><code>dhcp-snooping</code></td><td>180s</td><td>IP-MAC 绑定表，用于客户端指纹识别</td></tr>
-              <tr><td><code>crashlogs</code></td><td>事件驱动</td><td>崩溃后自动上传诊断数据</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <hr class="section-divider">
-
-    <!-- ================================================================ -->
-    <!-- SECTION: OpenSync -->
-    <!-- ================================================================ -->
-    <section id="opensync" data-section>
-      <div class="card reveal">
-        <div class="card-header">
-          <div class="card-icon blue">🔄</div>
-          <h2>6. OpenSync 融合层</h2>
-        </div>
-        <p>
-          OpenSync 是 OpenWiFi 架构中的<strong>网关/路由/设备固件中间层</strong>，最初由 Plume 开发并贡献给 TIP 社区。
-          其核心价值在于<strong>在 Qualcomm、Broadcom 等不同芯片平台之上提供统一管理接口</strong>，实现芯片平台抽象。
-        </p>
-
-        <h3>6.1 架构位置</h3>
-        <div class="mermaid-diagram">
-          <pre class="mermaid">
-graph TB
-    subgraph CLOUD["☁️ CloudSDK 控制器"]
-        direction LR
-        MGMT["uCentral 管理通道"]
-        TELEM["OpenSync 遥测通道"]
-    end
-
-    subgraph APNOS["📡 APNOS (OpenWrt)"]
-        UC["uCentral Client<br/>配置管理/命令执行"]
-        OS["OpenSync Agent<br/>遥测采集/数据上报"]
-        WIFIDRV["Wi-Fi 驱动<br/>hostapd / ath11k"]
-        UC --- OS
-        OS --- WIFIDRV
-    end
-
-    subgraph CHIP["🖥️ 芯片平台"]
-        QC2["Qualcomm IPQ8074<br/>WiFi 6/7 SoC"]
-        BC2["Broadcom BCM47xx<br/>WiFi 6 SoC"]
-    end
-
-    CLOUD -->|"WebSocket<br/>JSON-RPC"| UC
-    CLOUD -->|"MQTT<br/>Protobuf"| OS
-    APNOS -->|"HAL 抽象层"| CHIP
-
-    style CLOUD fill:#0a1628,stroke:rgba(51,102,255,0.4)
-    style APNOS fill:#0a1628,stroke:rgba(124,58,237,0.4)
-    style CHIP fill:#0a1628,stroke:rgba(136,153,180,0.3)
-          </pre>
-        </div>
-
-        <h3>6.2 核心价值</h3>
-        <div class="feature-grid">
-          <div class="feature-item">
-            <div class="fi-icon">🧩</div><h4>芯片平台抽象</h4><p>在 Qualcomm、Broadcom 等不同芯片平台之上提供统一管理接口</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">📊</div><h4>标准化遥测</h4><p>统一的数据采集与上报格式 (MQTT)，便于集中分析</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">🎛️</div><h4>控制平面分离</h4><p>将设备管理逻辑从底层硬件中完全解耦</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">🔌</div><h4>可扩展性</h4><p>支持第三方插件与自定义功能扩展</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <hr class="section-divider">
-
-    <!-- ================================================================ -->
-    <!-- SECTION: WiFi 7 -->
-    <!-- ================================================================ -->
-    <section id="wifi7" data-section>
-      <div class="card reveal">
-        <div class="card-header">
-          <div class="card-icon purple">⚡</div>
-          <h2>7. WiFi 7 与 OpenWiFi 4.0</h2>
-        </div>
-        <p>
-          <strong>OpenWiFi 4.0</strong> 是 TIP OpenWiFi 工作组于 2025 年发布的重大版本更新，
-          首次引入对 <strong>IEEE 802.11be (WiFi 7)</strong> 的全面支持，标志着开源 Wi-Fi 系统正式进入超高速时代。
-        </p>
-
-        <h3>7.1 WiFi 7 关键新特性</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>特性</th><th>技术细节</th><th>收益</th></tr></thead>
-            <tbody>
-              <tr>
-                <td><strong>MLO · 多链路操作</strong></td>
-                <td>终端可同时在 2.4/5/6 GHz 多频段上收发数据</td>
-                <td>↑ 吞吐量 · ↓ 延迟 · ↑ 可靠性</td>
-              </tr>
-              <tr>
-                <td><strong>4096-QAM</strong></td>
-                <td>调制阶数从 1024-QAM 提升至 4096-QAM</td>
-                <td>单流速率提升约 20%</td>
-              </tr>
-              <tr>
-                <td><strong>320 MHz 信道</strong></td>
-                <td>6GHz 频段支持超宽信道</td>
-                <td>理论峰值速率达 46 Gbps</td>
-              </tr>
-              <tr>
-                <td><strong>Preamble Puncturing</strong></td>
-                <td>允许在有干扰的子信道上打孔传输</td>
-                <td>提高频谱利用率</td>
-              </tr>
-              <tr>
-                <td><strong>Multi-RU</strong></td>
-                <td>单用户可分配多个资源单元</td>
-                <td>提升频谱调度灵活性</td>
-              </tr>
-              <tr>
-                <td><strong>Multi-AP Coordination</strong></td>
-                <td>多 AP 协同传输 (C-OFDMA, C-SR)</td>
-                <td>减少 AP 间干扰</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3>7.2 OpenWiFi 4.0 架构增强</h3>
-        <ul>
-          <li><strong>APNOS 内核升级</strong>至 OpenWrt 23.05+，带来更好的安全性和稳定性</li>
-          <li><strong>新增 WiFi 7 驱动框架</strong>与 HAL 硬件抽象层，支持多代芯片平台</li>
-          <li><strong>CloudSDK 新增 MLO 策略管理</strong>与 WiFi 7 RRM 射频优化引擎</li>
-          <li><strong>支持 6GHz AFC</strong> (自动频率协调) 监管合规</li>
-          <li><strong>WiFi 7 性能自动化 CI 测试框架</strong>，确保每夜构建质量</li>
-          <li>向下兼容 WiFi 6/6E/5/4 的 AP 和客户端设备</li>
-        </ul>
-      </div>
-    </section>
-
-    <hr class="section-divider">
-
-    <!-- ================================================================ -->
-    <!-- SECTION: Interoperability -->
-    <!-- ================================================================ -->
-    <section id="interop" data-section>
-      <div class="card reveal">
-        <div class="card-header">
-          <div class="card-icon green">🤝</div>
-          <h2>8. 多厂商互操作性</h2>
-        </div>
-        <p>
-          这是 OpenWiFi 区别于所有闭源方案的<strong>最核心价值</strong>——同一套 CloudSDK 控制器可以管理来自不同硬件厂商的 AP，实现真正的混合部署。
-        </p>
-
-        <h3>8.1 互操作架构</h3>
-        <div class="mermaid-diagram">
-          <pre class="mermaid">
-graph LR
-    CTRL["☁️ CloudSDK<br/>统一控制器"]
-
-    AP_A["🔵 厂商 A AP<br/>WiFi 6"]
-    AP_B["🟢 厂商 B AP<br/>WiFi 6E"]
-    AP_C["🟣 厂商 C AP<br/>WiFi 7"]
-    AP_D["🟠 厂商 D AP<br/>WiFi 5"]
-
-    PROTO["📋 uCentral 标准协议"]
-    MODEL["📐 统一 JSON Schema 配置模型"]
-    TELEM2["📊 统一 MQTT 遥测格式"]
-
-    CTRL --- PROTO
-    PROTO --- AP_A
-    PROTO --- AP_B
-    PROTO --- AP_C
-    PROTO --- AP_D
-    CTRL --- MODEL
-    CTRL --- TELEM2
-
-    style CTRL fill:#0a1628,stroke:rgba(0,212,255,0.5),stroke-width:2px
-    style AP_A fill:#0a1628,stroke:rgba(51,102,255,0.4)
-    style AP_B fill:#0a1628,stroke:rgba(0,230,118,0.4)
-    style AP_C fill:#0a1628,stroke:rgba(124,58,237,0.4)
-    style AP_D fill:#0a1628,stroke:rgba(255,171,0,0.4)
-    style PROTO fill:#0c0f17,stroke:rgba(0,230,118,0.3),stroke-dasharray:5
-    style MODEL fill:#0c0f17,stroke:rgba(0,212,255,0.2),stroke-dasharray:5
-    style TELEM2 fill:#0c0f17,stroke:rgba(0,212,255,0.2),stroke-dasharray:5
-          </pre>
-        </div>
-
-        <h3>8.2 认证设备生态</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>类别</th><th>已认证厂商</th></tr></thead>
-            <tbody>
-              <tr><td><strong>AP 硬件</strong></td><td>Edgecore、HFCL、Actiontec、Indio Networks、Lindsay Broadband、Inventum</td></tr>
-              <tr><td><strong>云控制器</strong></td><td>NetExperience、HFCL、Wavespot、Indio Networks、Inventum</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3>8.3 质量保障</h3>
-        <ul>
-          <li>社区运营 <strong>OpenWiFi Community Lab</strong> (与 CableLabs 合作)</li>
-          <li>每夜自动化 <strong>RF 暗室测试</strong></li>
-          <li>正式 <strong>互操作合规认证程序</strong> (Certification Program)</li>
-        </ul>
-      </div>
-    </section>
-
-    <hr class="section-divider">
-
-    <!-- ================================================================ -->
-    <!-- SECTION: Deployments -->
-    <!-- ================================================================ -->
-    <section id="deployments" data-section>
-      <div class="card reveal">
-        <div class="card-header">
-          <div class="card-icon amber">🌍</div>
-          <h2>9. 全球部署案例</h2>
-        </div>
-
-        <div class="deploy-grid">
-          <div class="deploy-card reveal">
-            <div class="dc-flag">🇮🇪</div>
-            <div class="dc-title">都柏林市政 + Virgin Media</div>
-            <div class="dc-detail">WiFi 6 公共 Wi-Fi 试点，符合欧盟 WiFi4EU 计划；NetExperience 云控制器 + Edgecore/HFCL AP</div>
-          </div>
-          <div class="deploy-card reveal">
-            <div class="dc-flag">🇺🇸</div>
-            <div class="dc-title">Boingo Wireless</div>
-            <div class="dc-detail">首个商用 WiFi 6E OpenWiFi 部署，覆盖机场、体育场等高密度场景</div>
-          </div>
-          <div class="deploy-card reveal">
-            <div class="dc-flag">🇮🇳</div>
-            <div class="dc-title">Spectra</div>
-            <div class="dc-detail">多住户单元 (MDU) 和企业园区部署，使用 Inventum AP + 控制器</div>
-          </div>
-          <div class="deploy-card reveal">
-            <div class="dc-flag">🇺🇸</div>
-            <div class="dc-title">CableLabs 验证</div>
-            <div class="dc-detail">验证 OpenWiFi v2.9，建立 Community Lab 供有线电视运营商测试</div>
-          </div>
-          <div class="deploy-card reveal">
-            <div class="dc-flag">🇵🇰</div>
-            <div class="dc-title">Multinet</div>
-            <div class="dc-detail">巴基斯坦托管 Wi-Fi 商业服务</div>
-          </div>
-          <div class="deploy-card reveal">
-            <div class="dc-flag">🇰🇪</div>
-            <div class="dc-title">ThinkWiFi & Mawingu</div>
-            <div class="dc-detail">肯尼亚新兴市场 Wi-Fi 接入服务部署</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <hr class="section-divider">
-
-    <!-- ================================================================ -->
-    <!-- SECTION: Ecosystem -->
-    <!-- ================================================================ -->
-    <section id="ecosystem" data-section>
-      <div class="card reveal">
-        <div class="card-header">
-          <div class="card-icon cyan">🌐</div>
-          <h2>10. 生态与合作伙伴</h2>
-        </div>
-
-        <h3>10.1 社区规模</h3>
-        <div class="feature-grid">
-          <div class="feature-item">
-            <div class="fi-icon">🏢</div><h4>300+ 企业参与</h4><p>涵盖服务提供商、OEM/ODM、ISV、SI、芯片厂商、行业组织</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">💬</div><h4>活跃社区</h4><p>Slack 技术工作组 + GitHub 协作 + 定期社区会议</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">🔬</div><h4>Community Lab</h4><p>与 CableLabs 合作运营，提供多厂商互操作测试环境</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">📋</div><h4>认证体系</h4><p>正式的 OpenWiFi 认证程序，保障互操作质量</p>
-          </div>
-        </div>
-
-        <h3>10.2 参与者生态</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>类别</th><th>代表成员</th></tr></thead>
-            <tbody>
-              <tr><td><strong>服务提供商</strong></td><td>Boingo、Spectra、Virgin Media、Multinet</td></tr>
-              <tr><td><strong>OEM/ODM</strong></td><td>Edgecore、HFCL、Actiontec、Indio Networks</td></tr>
-              <tr><td><strong>软件 ISV</strong></td><td>NetExperience、Wavespot、Inventum</td></tr>
-              <tr><td><strong>芯片厂商</strong></td><td>Qualcomm、Broadcom</td></tr>
-              <tr><td><strong>行业组织</strong></td><td>WBA (Wireless Broadband Alliance)、CableLabs、Wi-Fi Alliance</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3>10.3 核心代码仓库</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>仓库</th><th>描述</th></tr></thead>
-            <tbody>
-              <tr><td><code>Telecominfraproject/wlan-docs</code></td><td>核心文档与架构说明</td></tr>
-              <tr><td><code>Telecominfraproject/wlan-cloud-ucentralgw</code></td><td>CloudSDK 云控制器网关 (OWGW)</td></tr>
-              <tr><td><code>routerarchitects/ra-wlan-cloud-ucentralgw</code></td><td>OWGW 社区维护分支</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <hr class="section-divider">
-
-    <!-- ================================================================ -->
-    <!-- SECTION: Comparison -->
-    <!-- ================================================================ -->
-    <section id="comparison" data-section>
-      <div class="card reveal">
-        <div class="card-header">
-          <div class="card-icon blue">⚖️</div>
-          <h2>11. 与同类方案对比</h2>
-        </div>
-
-        <h3>11.1 开源 Wi-Fi 方案对比</h3>
-        <div class="table-wrap">
-          <table class="compare-table">
-            <thead><tr><th>维度</th><th>OpenWiFi</th><th>OpenWrt</th><th>OpenWISP</th></tr></thead>
-            <tbody>
-              <tr><td>定位</td><td>企业级全栈解耦 Wi-Fi 系统</td><td>通用嵌入式路由器 OS</td><td>网络管理与自动化</td></tr>
-              <tr><td>云控制器</td><td>✅ 原生 CloudSDK</td><td>❌ 需自建</td><td>✅ 集中管理</td></tr>
-              <tr><td>多厂商互操作</td><td>✅ 核心设计目标</td><td>部分 (同芯片)</td><td>部分</td></tr>
-              <tr><td>WiFi 7 支持</td><td>✅ (v4.0)</td><td>✅ (社区)</td><td>待验证</td></tr>
-              <tr><td>ZTP 零接触部署</td><td>✅ 原生支持</td><td>❌</td><td>部分</td></tr>
-              <tr><td>标准化北向 API</td><td>✅ OpenAPI REST</td><td>❌</td><td>✅ REST</td></tr>
-              <tr><td>RRM 射频管理</td><td>✅ 内置</td><td>❌</td><td>❌</td></tr>
-              <tr><td>社区规模</td><td>300+ 企业</td><td>极大规模</td><td>中型</td></tr>
-              <tr><td>许可证</td><td>Apache-2.0</td><td>GPLv2</td><td>GPLv3</td></tr>
-              <tr><td>适用场景</td><td>运营商/企业/智慧城市</td><td>SOHO/DIY/CPE</td><td>ISP/社区网络</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3>11.2 OpenWiFi vs 传统闭源</h3>
-        <div class="table-wrap">
-          <table class="compare-table">
-            <thead><tr><th>维度</th><th>OpenWiFi</th><th>Aruba / Cisco / Meraki</th></tr></thead>
-            <tbody>
-              <tr><td>硬件锁定</td><td>❌ 任意认证白盒 AP</td><td>✅ 必须同品牌</td></tr>
-              <tr><td>控制器许可费</td><td>❌ 开源免费</td><td>✅ 按 AP 或功能收费</td></tr>
-              <tr><td>API 开放性</td><td>✅ 完全开放</td><td>⚠️ 受限 / 需额外许可</td></tr>
-              <tr><td>定制化能力</td><td>✅ 完全可定制</td><td>⚠️ 有限 / 需原厂支持</td></tr>
-              <tr><td>创新速度</td><td>✅ 社区驱动，快速迭代</td><td>⚠️ 依赖厂商路线图</td></tr>
-              <tr><td>商业支持</td><td>⚠️ 社区 + 第三方</td><td>✅ 原厂技术支持</td></tr>
-              <tr><td>TCO (总拥有成本)</td><td>低</td><td>中 – 高</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <hr class="section-divider">
-
-    <!-- ================================================================ -->
-    <!-- SECTION: SDN Perspective -->
-    <!-- ================================================================ -->
-    <section id="sdn-perspective" data-section>
-      <div class="card reveal">
-        <div class="card-header">
-          <div class="card-icon purple">🔬</div>
-          <h2>12. SDN 研究视角下的 OpenWiFi</h2>
-        </div>
-
-        <h3>12.1 OpenWiFi 与 SDN 的契合度</h3>
-        <p>OpenWiFi 的架构设计与 SDN 核心理念高度一致，可以被视为 <strong>"无线领域的 SDN"</strong>：</p>
-
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>SDN 原则</th><th>OpenWiFi 实现</th></tr></thead>
-            <tbody>
-              <tr><td><strong>控制与转发分离</strong></td><td>CloudSDK (控制面) ↔ AP (数据/转发面)</td></tr>
-              <tr><td><strong>集中式管控</strong></td><td>CloudSDK 提供全网统一管理视图</td></tr>
-              <tr><td><strong>开放可编程接口</strong></td><td>OpenAPI 北向接口，支持自动化编排</td></tr>
-              <tr><td><strong>硬件白盒化</strong></td><td>认证白盒 AP，软件与硬件解耦</td></tr>
-              <tr><td><strong>网络虚拟化</strong></td><td>多 SSID + VLAN + Overlay 组网</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3>12.2 值得关注的 SDN 研究方向</h3>
-        <div class="feature-grid">
-          <div class="feature-item">
-            <div class="fi-icon">📶</div><h4>WiFi + 5G/6G 融合</h4><p>OpenWiFi + Open RAN 融合架构设计，探索蜂窝/Wi-Fi 无缝切换</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">🧠</div><h4>AI/ML 驱动的 RRM</h4><p>利用 CloudSDK 遥测数据训练智能射频优化模型</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">🪪</div><h4>OpenRoaming Federation</h4><p>跨运营商 Wi-Fi 漫游的联邦认证架构</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">🎯</div><h4>意图驱动网络 (IBN)</h4><p>在北向 API 上构建意图翻译层，自然语言 → 网络策略</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">⏱️</div><h4>WiFi TSN</h4><p>面向工业场景的低延迟时间敏感网络</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">🌱</div><h4>Green Wi-Fi</h4><p>基于 AI 的 AP 休眠与唤醒策略，降低能耗</p>
-          </div>
-        </div>
-
-        <h3>12.3 潜在研究切入点</h3>
-        <ul>
-          <li><strong>控制器联邦:</strong> 多域 OpenWiFi 控制器的水平扩展与联邦机制</li>
-          <li><strong>AP 边缘计算:</strong> 在 APNOS 上集成轻量级边缘计算框架 (如 WebAssembly)</li>
-          <li><strong>Intent-Based Configuration:</strong> 用自然语言描述 Wi-Fi 策略，自动翻译为 OpenWiFi 配置</li>
-        </ul>
-      </div>
-    </section>
-
-    <hr class="section-divider">
-
-    <!-- ================================================================ -->
-    <!-- SECTION: Dev Cases -->
-    <!-- ================================================================ -->
-    <section id="dev-cases" data-section>
-      <div class="card reveal">
-        <div class="card-header">
-          <div class="card-icon green">💻</div>
-          <h2>13. 实际开发案例</h2>
-        </div>
-
-        <h3>13.1 案例一：构建 AP 固件</h3>
-        <p>以下展示从源码构建 EdgeCore EAP101 AP 固件的完整流程：</p>
-        <div class="terminal">
-          <div class="terminal-header">
-            <span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span>
-            <span class="terminal-title">Build AP Firmware</span>
-          </div>
-          <div class="terminal-body"><span class="comment"># 1. 安装构建依赖</span>
-sudo apt install build-essential libncurses5-dev gawk git \
-  libssl-dev gettext zlib1g-dev swig unzip time rsync \
-  python3 python3-setuptools python3-yaml
-
-<span class="comment"># 2. 克隆 AP NOS 仓库</span>
-git clone https://github.com/Telecominfraproject/wlan-ap
-cd wlan-ap
-git checkout release/v2.10.0
-
-<span class="comment"># 3. 初始化 OpenWrt 构建树</span>
-./setup.py --setup
-
-<span class="comment"># 4. 选择目标硬件配置</span>
-cd openwrt
-./scripts/gen_config.py edgecore_eap101
-
-<span class="comment"># 5. 开始编译 (使用 Docker 可避免宿主机依赖问题)</span>
-make -j$(nproc) V=s
-<span class="comment"># 或使用 Docker:</span>
-TARGET=edgecore_eap101 make -j$(nproc)
-
-<span class="comment"># 6. 产物路径</span>
-ls openwrt/bin/targets/ipq807x/ipq60xx/
-<span class="comment"># → openwrt-ipq807x-edgecore_eap101-squashfs-nand-factory.bin</span></div>
-        </div>
-
-        <h4>自定义固件包</h4>
-        <p>编辑 <code>profiles/</code> 目录下的 YAML 配置文件，可添加自定义 OpenWrt 包：</p>
-        <div class="terminal">
-          <div class="terminal-header">
-            <span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span>
-            <span class="terminal-title">Custom Profile — edgecore_eap101_custom.yaml</span>
-          </div>
-          <div class="terminal-body"><span class="cmd">profile</span>: edgecore_equiv
-<span class="cmd">target</span>: ipq807x
-<span class="cmd">subtarget</span>: ipq60xx
-<span class="cmd">packages</span>:
-  - base-files
-  - busybox
-  - hostapd                  <span class="comment"># WiFi 认证/加密守护进程</span>
-  - ucentral-client          <span class="comment"># uCentral 协议代理</span>
-  - opensync-agent           <span class="comment"># OpenSync 遥测代理</span>
-  - wpa-supplicant           <span class="comment"># WPA 客户端支持</span>
-  - curl                     <span class="comment"># HTTP 客户端 (调试)</span>
-  - tcpdump                  <span class="comment"># 远程抓包</span>
-  - luci                     <span class="comment"># 本地 Web 管理界面</span></div>
-        </div>
-
-        <h3>13.2 案例二：部署 CloudSDK 控制器</h3>
-        <div class="terminal">
-          <div class="terminal-header">
-            <span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span>
-            <span class="terminal-title">Deploy OWGW Controller via Docker</span>
-          </div>
-          <div class="terminal-body"><span class="comment"># 1. 准备目录和证书</span>
-mkdir -p certs/cas logs uploads
-<span class="comment"># 将 DigiCert 签发的证书放入 certs/ 目录</span>
-
-<span class="comment"># 2. 配置环境变量</span>
-export OWGW_ROOT=$(pwd)
-export OWGW_CONFIG=$(pwd)
-
-<span class="comment"># 3. 启动 OWGW 网关容器</span>
-docker run -d --name owgw \
-  -v $(pwd)/certs:/owgw/certs \
-  -v $(pwd)/owgw.properties:/owgw/owgw.properties \
-  -v $(pwd)/logs:/owgw/logs \
-  -p 16001:16001 \
-  -p 16002:16002 \
-  -p 16004:16004 \
-  ucentral/owgw:latest
-
-<span class="comment"># 4. 验证服务运行</span>
-curl -k https://localhost:16002/api/v1/system
-<span class="comment"># → {"uptime": 3600, "version": "2.10.0", "status": "running"}</span></div>
-        </div>
-
-        <h4>控制器资源规划</h4>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>AP 数量</th><th>终端数 (15x)</th><th>CPU</th><th>RAM</th><th>磁盘</th></tr></thead>
-            <tbody>
-              <tr><td>500</td><td>7,500</td><td>4 vCPU</td><td>8 GB</td><td>500 GB</td></tr>
-              <tr><td>1,000</td><td>15,000</td><td>8 vCPU</td><td>16 GB</td><td>1 TB</td></tr>
-              <tr><td>5,000</td><td>75,000</td><td>16 vCPU</td><td>32 GB</td><td>2 TB</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3>13.3 案例三：AP 零接触上线 (ZTP) + JSON 配置</h3>
-        <p><strong>Step 1: DHCP Option 138 自动发现控制器</strong></p>
-        <div class="terminal">
-          <div class="terminal-header">
-            <span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span>
-            <span class="terminal-title">DHCP Server Configuration — /etc/dhcp/dhcpd.conf</span>
-          </div>
-          <div class="terminal-body"><span class="comment"># 定义 CAPWAP AC 地址选项 (Option 138)</span>
-<span class="cmd">option</span> capwap-ac code 138 = ip-address;
-<span class="cmd">option</span> capwap-ac 192.168.18.141;
-
-<span class="comment"># AP 上电 → DHCP 获取 IP + Option 138 → 自动连接控制器</span></div>
-        </div>
-
-        <p><strong>Step 2: 通过控制器北向 API 下发配置</strong></p>
-        <div class="terminal">
-          <div class="terminal-header">
-            <span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span>
-            <span class="terminal-title">REST API — 创建设备并下发 SSID 配置</span>
-          </div>
-          <div class="terminal-body"><span class="comment"># 注册设备到控制器库存</span>
-curl -X POST https://controller:16002/api/v1/inventory \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    <span class="cmd">"serialNumber"</span>: "AABBCCDDEEFF",
-    <span class="cmd">"name"</span>: "Office-AP-01",
-    <span class="cmd">"deviceType"</span>: "edgecore_eap101"
-  }'
-
-<span class="comment"># 下发 WiFi 配置</span>
-curl -X POST https://controller:16002/api/v1/device/AABBCCDDEEFF/configure \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    <span class="cmd">"configuration"</span>: {
-      <span class="cmd">"unit"</span>: {
-        <span class="cmd">"name"</span>: "Office-AP-01",
-        <span class="cmd">"location"</span>: "Building-A"
-      },
-      <span class="cmd">"interfaces"</span>: [{
-        <span class="cmd">"name"</span>: "LAN",
-        <span class="cmd">"role"</span>: "downstream",
-        <span class="cmd">"ssids"</span>: [{
-          <span class="cmd">"name"</span>: "Enterprise-WiFi",
-          <span class="cmd">"wifi-bands"</span>: ["5G", "2G"],
-          <span class="cmd">"bss-mode"</span>: "ap",
-          <span class="cmd">"encryption"</span>: {
-            <span class="cmd">"proto"</span>: "wpa3",
-            <span class="cmd">"key"</span>: "SecurePass!2026",
-            <span class="cmd">"ieee80211w"</span>: "required"
-          }
-        }]
-      }]
-    }
-  }'
-
-<span class="comment"># 查询设备状态</span>
-curl -s https://controller:16002/api/v1/device/AABBCCDDEEFF/state | jq .
-<span class="comment"># → {"state": "configured", "hash": "d4e5...", "uptime": 1200, ...}</span></div>
-        </div>
-
-        <h3>13.4 案例四：Python 自动化测试 (Mobly WiFi)</h3>
-        <p>
-          OpenWiFi 社区提供了 <strong>mobly-wifi</strong> Python 包，可用于自动化测试和 CI/CD 集成。
-          以下展示如何编写自动化测试脚本控制 AP 创建 Wi-Fi 网络：
-        </p>
-        <div class="terminal">
-          <div class="terminal-header">
-            <span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span>
-            <span class="terminal-title">Python Automation — ap_test.py</span>
-          </div>
-          <div class="terminal-body"><span class="comment">"""Mobly WiFi — 自动化 AP 测试脚本"""</span>
-<span class="cmd">from</span> mobly <span class="cmd">import</span> base_test, test_runner
-<span class="cmd">from</span> mobly.controllers.wifi <span class="cmd">import</span> openwrt_device, wifi_configs
-
-<span class="cmd">class</span> <span class="prompt">OpenWiFiAPTest</span>(base_test.BaseTestClass):
-
-    <span class="cmd">def</span> <span class="prompt">setup_class</span>(self):
-        <span class="cmd">self</span>.ap = <span class="cmd">self</span>.register_controller(
-            openwrt_device
-        )[<span class="prompt">0</span>]
-
-    <span class="cmd">def</span> <span class="prompt">test_wpa3_enterprise</span>(self):
-        <span class="comment"># 配置 WPA3-Enterprise Wi-Fi 网络</span>
-        config = wifi_configs.WiFiConfig(
-            <span class="cmd">channel</span>=<span class="prompt">36</span>,
-            <span class="cmd">ssid</span>=<span class="prompt">"Enterprise-WPA3"</span>,
-            <span class="cmd">security</span>=<span class="prompt">"wpa3"</span>,
-            <span class="cmd">radius_server</span>=<span class="prompt">"192.168.1.10"</span>,
-            <span class="cmd">radius_secret</span>=<span class="prompt">"radius-secret-key"</span>
-        )
-        wifi_info = <span class="cmd">self</span>.ap.start_wifi(config=config)
-        <span class="cmd">self</span>.ap.log.info(
-            <span class="prompt">'SSID "%s" on channel %d'</span>,
-            wifi_info.ssid, wifi_info.channel
-        )
-
-        <span class="comment"># 验证客户端可连接</span>
-        client = <span class="cmd">self</span>.connect_client(
-            <span class="cmd">ssid</span>=<span class="prompt">"Enterprise-WPA3"</span>,
-            <span class="cmd">username</span>=<span class="prompt">"testuser"</span>,
-            <span class="cmd">password</span>=<span class="prompt">"TestPass123"</span>
-        )
-        <span class="cmd">assert</span> client.is_connected
-
-        <span class="comment"># 验证吞吐量</span>
-        result = <span class="cmd">self</span>.iperf_test(
-            <span class="cmd">server</span>=<span class="prompt">"192.168.1.100"</span>,
-            <span class="cmd">duration</span>=<span class="prompt">30</span>
-        )
-        <span class="cmd">assert</span> result.throughput_mbps > <span class="prompt">500</span>
-
-<span class="cmd">if</span> __name__ == <span class="prompt">'__main__'</span>:
-    test_runner.main()
-
-<span class="comment"># 运行:</span>
-<span class="comment"># python ap_test.py -c testbed_config.yaml</span></div>
-        </div>
-
-        <h3>13.5 案例五：WDS 无线回程配置</h3>
-        <p>WDS (Wireless Distribution System) 允许 AP 间通过无线链路回程，适用于布线困难的场景：</p>
-        <div class="mermaid-diagram">
-          <pre class="mermaid">
-graph LR
-    GW[("🏢 网关<br/>互联网出口")]
-    ROOT["📡 Root AP<br/>wds-ap 模式<br/>5GHz 回程"]
-    LEAF1["📡 Leaf AP-1<br/>wds-sta 模式<br/>2.4GHz 客户端服务"]
-    LEAF2["📡 Leaf AP-2<br/>wds-sta 模式<br/>2.4GHz 客户端服务"]
-    C1["📱 客户端"]
-    C2["💻 客户端"]
-    C3["📱 客户端"]
-
-    GW -->|"有线"| ROOT
-    ROOT -->|"WDS 5GHz 无线链路"| LEAF1
-    ROOT -->|"WDS 5GHz 无线链路"| LEAF2
-    LEAF1 --> C1
-    LEAF1 --> C2
-    LEAF2 --> C3
-
-    style GW fill:#0a1628,stroke:rgba(0,230,118,0.4)
-    style ROOT fill:#0a1628,stroke:rgba(0,212,255,0.4),stroke-width:2px
-    style LEAF1 fill:#0a1628,stroke:rgba(51,102,255,0.3)
-    style LEAF2 fill:#0a1628,stroke:rgba(51,102,255,0.3)
-          </pre>
-        </div>
-
-        <p><strong>Root AP (wds-ap) 配置:</strong></p>
-        <div class="terminal">
-          <div class="terminal-header">
-            <span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span>
-            <span class="terminal-title">WDS AP Configuration</span>
-          </div>
-          <div class="terminal-body">{
-  <span class="cmd">"interfaces"</span>: [{
-    <span class="cmd">"name"</span>: "LAN",
-    <span class="cmd">"role"</span>: "downstream",
-    <span class="cmd">"ssids"</span>: [{
-      <span class="cmd">"name"</span>: "OpenWifi_WDS_AP",
-      <span class="cmd">"wifi-bands"</span>: ["5G"],
-      <span class="cmd">"bss-mode"</span>: "wds-ap",       <span class="comment">// 根节点模式</span>
-      <span class="cmd">"encryption"</span>: {
-        <span class="cmd">"proto"</span>: "psk2",
-        <span class="cmd">"key"</span>: "OpenWifi"
-      },
-      <span class="cmd">"roaming"</span>: {
-        <span class="cmd">"message-exchange"</span>: "ds",
-        <span class="cmd">"generate-psk"</span>: true        <span class="comment">// 自动生成每客户端 PSK</span>
-      }
-    }]
-  }]
-}</div>
-        </div>
-
-        <h3>13.6 REST API 接口总览</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>方法</th><th>端点</th><th>描述</th></tr></thead>
-            <tbody>
-              <tr><td><code>GET</code></td><td><code>/api/v1/devices</code></td><td>获取所有设备列表</td></tr>
-              <tr><td><code>GET</code></td><td><code>/api/v1/device/{serial}</code></td><td>获取指定设备详情</td></tr>
-              <tr><td><code>POST</code></td><td><code>/api/v1/inventory</code></td><td>注册新设备到库存</td></tr>
-              <tr><td><code>DELETE</code></td><td><code>/api/v1/inventory/{serial}</code></td><td>从库存移除设备</td></tr>
-              <tr><td><code>POST</code></td><td><code>/api/v1/device/{serial}/configure</code></td><td>下发设备配置</td></tr>
-              <tr><td><code>GET</code></td><td><code>/api/v1/device/{serial}/state</code></td><td>查询设备状态</td></tr>
-              <tr><td><code>GET</code></td><td><code>/api/v1/device/{serial}/statistics</code></td><td>获取设备统计 (客户端数/流量等)</td></tr>
-              <tr><td><code>GET</code></td><td><code>/api/v1/device/{serial}/healthchecks</code></td><td>获取设备健康数据</td></tr>
-              <tr><td><code>GET</code></td><td><code>/api/v1/device/{serial}/capabilities</code></td><td>查询设备能力</td></tr>
-              <tr><td><code>GET</code></td><td><code>/api/v1/device/{serial}/logs</code></td><td>获取设备日志</td></tr>
-              <tr><td><code>POST</code></td><td><code>/api/v1/device/{serial}/reboot</code></td><td>重启设备</td></tr>
-              <tr><td><code>POST</code></td><td><code>/api/v1/device/{serial}/factory</code></td><td>恢复出厂设置</td></tr>
-              <tr><td><code>POST</code></td><td><code>/api/v1/device/{serial}/upgrade</code></td><td>触发固件升级</td></tr>
-              <tr><td><code>POST</code></td><td><code>/api/v1/device/{serial}/trace</code></td><td>开启远程抓包</td></tr>
-              <tr><td><code>GET</code></td><td><code>/api/v1/device/{serial}/command</code></td><td>查询待执行命令</td></tr>
-              <tr><td><code>POST</code></td><td><code>/api/v1/firmwares</code></td><td>上传新固件</td></tr>
-              <tr><td><code>GET</code></td><td><code>/api/v1/system</code></td><td>控制器系统状态</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3>13.7 开发环境快速搭建 (完整脚本)</h3>
-        <div class="terminal">
-          <div class="terminal-header">
-            <span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span>
-            <span class="terminal-title">One-Click Dev Environment — setup_openwifi_dev.sh</span>
-          </div>
-          <div class="terminal-body"><span class="comment">#!/bin/bash</span>
-<span class="comment"># OpenWiFi 全栈开发环境一键搭建</span>
-<span class="cmd">set</span> -e
-
-<span class="comment"># === 1. Controller (OWGW) ===</span>
-git clone https://github.com/Telecominfraproject/wlan-cloud-ucentralgw
-cd wlan-cloud-ucentralgw
-docker compose up -d
-cd ..
-
-<span class="comment"># === 2. AP Firmware Build ===</span>
-git clone https://github.com/Telecominfraproject/wlan-ap
-cd wlan-ap
-./setup.py --setup
-cd openwrt
-./scripts/gen_config.py edgecore_eap101
-make -j$(nproc) V=s
-cd ../..
-
-<span class="comment"># === 3. Python Test Framework ===</span>
-pip install mobly-wifi
-
-<span class="comment"># === 4. Schema Validation Tool ===</span>
-git clone https://github.com/Telecominfraproject/wlan-ucentral-schema
-cd wlan-ucentral-schema
-<span class="comment"># 使用 ajv 验证配置是否符合 Schema:</span>
-npm install -g ajv-cli
-ajv validate -s schema/configuration.json \
-  -d examples/configuration-example.json
-cd ..
-
-<span class="cmd">echo</span> <span class="prompt">"✅ OpenWiFi dev environment ready!"</span>
-<span class="cmd">echo</span> <span class="prompt">"Controller: https://localhost:16002"</span>
-<span class="cmd">echo</span> <span class="prompt">"Firmware: wlan-ap/openwrt/bin/"</span></div>
-        </div>
-      </div>
-    </section>
-
-    <hr class="section-divider">
-
-    <!-- ================================================================ -->
-    <!-- SECTION: Summary -->
-    <!-- ================================================================ -->
-    <section id="summary" data-section>
-      <div class="card reveal">
-        <div class="card-header">
-          <div class="card-icon cyan">📋</div>
-          <h2>14. 总结与展望</h2>
-        </div>
-
-        <h3>13.1 核心优势</h3>
-        <div class="feature-grid">
-          <div class="feature-item">
-            <div class="fi-icon">🔓</div><h4>真正的开源解耦</h4><p>从芯片到云端的全栈开源，无锁定风险</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">💰</div><h4>成本优势显著</h4><p>无控制器许可费，AP 采购灵活多样化</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">🚀</div><h4>创新速度快</h4><p>社区驱动 CI/CD 每日构建，新功能快速落地</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">🌐</div><h4>生态持续壮大</h4><p>300+ 企业参与，涵盖全产业链</p>
-          </div>
-          <div class="feature-item">
-            <div class="fi-icon">⚡</div><h4>WiFi 7 就绪</h4><p>OpenWiFi 4.0 全面支持 WiFi 7，领先多数闭源方案</p>
-          </div>
-        </div>
-
-        <h3>13.2 当前挑战</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>挑战</th><th>说明</th></tr></thead>
-            <tbody>
-              <tr><td>企业级支持体系</td><td>尚不如 Aruba/Cisco 等成熟厂商完善</td></tr>
-              <tr><td>文档与培训</td><td>开源项目文档质量参差不齐</td></tr>
-              <tr><td>认证互操作规模</td><td>认证设备型号数量仍需扩充</td></tr>
-              <tr><td>容器化运维门槛</td><td>需要 Docker/K8s 运维能力</td></tr>
-              <tr><td>国内生态</td><td>中国厂商参与度和部署案例相对较少</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3>13.3 趋势展望</h3>
-        <ul>
-          <li><strong>WiFi 7 规模化部署:</strong> 预计 2026–2027 年 OpenWiFi 4.0 驱动新一轮 AP 升级周期</li>
-          <li><strong>AI-Native RRM:</strong> 社区已开始探索 AI/ML 在射频优化的应用</li>
-          <li><strong>WiFi + 5G 融合:</strong> TIP OpenLAN 与 OpenRAN 的融合场景将进一步深化</li>
-          <li><strong>边缘计算集成:</strong> APNOS 可能成为边缘计算节点</li>
-          <li><strong>中国市场机遇:</strong> 星融元 Asterfusion 等国内厂商已有 OpenWiFi 相关探索</li>
-        </ul>
-      </div>
-    </section>
-
-    <hr class="section-divider">
-
-    <!-- ================================================================ -->
-    <!-- SECTION: References -->
-    <!-- ================================================================ -->
-    <section id="references" data-section>
-      <div class="card reveal">
-        <div class="card-header">
-          <div class="card-icon green">📚</div>
-          <h2>15. 参考资源</h2>
-        </div>
-
-        <h3>15.1 官方链接</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>资源</th><th>URL</th></tr></thead>
-            <tbody>
-              <tr>
-                <td>TIP OpenWiFi 官方文档</td>
-                <td><a href="https://github.com/Telecominfraproject/wlan-docs" target="_blank" rel="noopener">github.com/Telecominfraproject/wlan-docs</a></td>
-              </tr>
-              <tr>
-                <td>CloudSDK (OWGW)</td>
-                <td><a href="https://github.com/Telecominfraproject/wlan-cloud-ucentralgw" target="_blank" rel="noopener">github.com/Telecominfraproject/wlan-cloud-ucentralgw</a></td>
-              </tr>
-              <tr>
-                <td>OWGW 社区分支</td>
-                <td><a href="https://github.com/routerarchitects/ra-wlan-cloud-ucentralgw" target="_blank" rel="noopener">github.com/routerarchitects/ra-wlan-cloud-ucentralgw</a></td>
-              </tr>
-              <tr>
-                <td>TIP OpenLAN 主页</td>
-                <td><a href="https://www.telecominfraproject.com/openlan" target="_blank" rel="noopener">telecominfraproject.com/openlan</a></td>
-              </tr>
-              <tr>
-                <td>OpenWiFi 4.0 发布公告</td>
-                <td><a href="https://www.telecominfraproject.com/post/tip-openwifi-subgroup-unveils-openwifi-4-0-with-wifi-7-support" target="_blank" rel="noopener">TIP Blog — OpenWiFi 4.0</a></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3>15.2 参考文章</h3>
-        <ul>
-          <li><a href="https://www.mobileeurope.co.uk/dublin-city-council-virgin-media-trial-tip-openwifi-pilots/" target="_blank" rel="noopener">Dublin City Council, Virgin Media trial TIP OpenWiFi — Mobile Europe</a></li>
-          <li><a href="https://www.rcrwireless.com/20230126/asia-pacific/spectra-expands-tip-openwifi-architecture-in-india" target="_blank" rel="noopener">Spectra expands TIP OpenWiFi architecture in India — RCR Wireless</a></li>
-          <li><a href="https://wifi.edge-core.com/news/press-release/edgecorewifi-launches-full-stack-openwifi-poc-kit/" target="_blank" rel="noopener">Edgecore Wi-Fi Launches Full-Stack OpenWiFi POC Kit</a></li>
-          <li><a href="https://asterfusion.com/blog20230814-openwifi/" target="_blank" rel="noopener">什么是 TIP OpenWiFi？ — 星融元 Asterfusion</a></li>
-        </ul>
-      </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="site-footer reveal">
-      <span>© 2026 SDN Research · Built with ❤️</span>
-      <span>CC BY 4.0 · <a href="https://github.com/zhukingliu/sdn-research">GitHub</a></span>
-    </footer>
-
-  </main>
-</div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <span>© 2026 SDN Research · Built with ❤️</span>
+    <span>CC BY 4.0 · <a href="https://github.com/zhukingliu/sdn-research">GitHub</a></span>
+  </footer>
+
+</main>
 
 <script src="assets/js/main.js"></script>
 </body>

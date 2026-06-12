@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NETCONF 调研 | SDN Research</title>
+<meta name="description" content="NETCONF (RFC 6241) 网络配置协议深度调研 — 四层架构、YANG 建模、事务语义、SDN 集成">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔧</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true, theme: 'dark',
+    themeVariables: {
+      primaryColor: '#0c1a2b', primaryTextColor: '#e0e6f0', primaryBorderColor: 'rgba(0,200,255,0.3)',
+      lineColor: 'rgba(0,200,255,0.5)', secondaryColor: '#0a1628', tertiaryColor: '#0c0f17',
+      fontFamily: '"JetBrains Mono","Noto Sans SC",monospace', fontSize: '13px',
+      sequenceNumberColor: '#00d4ff', actorBkg: '#0c1a2b', actorBorder: 'rgba(0,200,255,0.3)',
+      actorTextColor: '#e0e6f0', signalColor: '#8899b4', labelTextColor: '#e0e6f0',
+      noteBkgColor: 'rgba(0,200,255,0.06)', activationBkgColor: 'rgba(0,200,255,0.08)',
+    }
+  });
+</script>
+</head>
+<body>
+
+<canvas id="particle-canvas"></canvas>
+<button class="sidebar-toggle" aria-label="Menu">☰</button>
+<button class="back-to-top" aria-label="Back to top">↑</button>
+
+<div class="app-container">
+
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <a href="index.html" class="sidebar-logo">
+        <div class="logo-icon">🔧</div>
+        <div class="logo-text">SDN Research<small>NETCONF Report</small></div>
+      </a>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section"><div class="nav-section-title">导航</div>
+        <a href="index.html" class="nav-link"><span class="nav-dot"></span>← 返回门户</a>
+        <a href="openwifi.html" class="nav-link"><span class="nav-dot"></span>OpenWiFi 调研</a>
+        <a href="gnmi.html" class="nav-link"><span class="nav-dot"></span>gNMI 调研</a>
+      </div>
+      <div class="nav-section"><div class="nav-section-title">本页</div>
+        <a href="#overview" class="nav-link active"><span class="nav-dot"></span>概述与背景</a>
+        <a href="#architecture" class="nav-link"><span class="nav-dot"></span>四层架构模型</a>
+        <a href="#operations" class="nav-link"><span class="nav-dot"></span>核心 RPC 操作</a>
+        <a href="#datastore" class="nav-link"><span class="nav-dot"></span>数据存储与事务</a>
+        <a href="#yang" class="nav-link"><span class="nav-dot"></span>YANG 数据建模</a>
+        <a href="#nmda" class="nav-link"><span class="nav-dot"></span>NMDA 扩展</a>
+        <a href="#comparison" class="nav-link"><span class="nav-dot"></span>协议对比</a>
+        <a href="#sdn" class="nav-link"><span class="nav-dot"></span>SDN 控制器集成</a>
+        <a href="#dev" class="nav-link"><span class="nav-dot"></span>Python 开发实践</a>
+      </div>
+    </nav>
+    <div class="sidebar-footer"><span>🟢 RFC 6241 · 2026.06</span></div>
+  </aside>
+
+  <main class="main-content">
+
+    <div class="hero reveal">
+      <div class="hero-badge"><span class="pulse"></span> IETF RFC 6241</div>
+      <h1>NETCONF<br>Network Configuration Protocol</h1>
+      <p class="hero-subtitle">
+        IETF 标准化的网络配置管理协议。基于 XML 编码、SSH 安全传输、YANG 数据建模，
+        提供 ACID 事务语义和候选数据存储机制，是 SDN 控制器南向配置的事实标准。
+      </p>
+      <div class="hero-meta">
+        <div class="hero-meta-item"><span class="meta-icon">📅</span> 2026-06-12</div>
+        <div class="hero-meta-item"><span class="meta-icon">📌</span> RFC 6241 + 8526 (NMDA)</div>
+        <div class="hero-meta-item"><span class="meta-icon">🏢</span> IETF · 标准化</div>
+        <div class="hero-meta-item"><span class="meta-icon">📄</span> CC BY 4.0</div>
+      </div>
+      <div style="margin-top:18px;">
+        <span class="tag cyan">NETCONF</span><span class="tag blue">YANG</span><span class="tag green">IETF</span>
+        <span class="tag purple">XML</span><span class="tag amber">Transactional</span><span class="tag cyan">RFC 6241</span>
+      </div>
+    </div>
+
+    <!-- Overview -->
+    <section id="overview" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon cyan">📖</div><h2>1. 概述与背景</h2></div>
+        <h3>1.1 什么是 NETCONF</h3>
+        <p><strong>NETCONF (Network Configuration Protocol)</strong> 是 IETF 于 2006 年首次发布的网络配置管理协议，定义于 <strong>RFC 6241</strong>，提供安装、修改和删除网络设备配置的标准化机制。使用 <strong>XML</strong> 编码，通过 <strong>SSH (端口 830)</strong> 进行安全 RPC 通信。</p>
+        <blockquote>NETCONF 被业界公认为 "网络配置自动化的基石协议"，它取代了脆弱的 CLI 屏幕抓取 (screen-scraping)，开启了模型驱动的网络可编程时代。</blockquote>
+
+        <h3>1.2 为什么需要 NETCONF</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>传统 CLI/SNMP 痛点</th><th>NETCONF 解决方案</th></tr></thead>
+          <tbody>
+            <tr><td>CLI 输出无结构化，脚本脆弱</td><td>XML 结构化数据，Schema 校验</td></tr>
+            <tr><td>配置变更无回滚保障</td><td>候选数据存储 + commit/rollback 事务</td></tr>
+            <tr><td>SNMP 不支持配置写入</td><td>edit-config 操作 + 多数据存储支持</td></tr>
+            <tr><td>多厂商 CLI 语法不兼容</td><td>统一 YANG 模型驱动的标准化接口</td></tr>
+            <tr><td>无配置校验</td><td>validate + confirmed-commit 安全网</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>1.3 发展里程碑</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>时间</th><th>里程碑</th></tr></thead>
+          <tbody>
+            <tr><td>2006</td><td>RFC 4741: NETCONF 1.0 (初始版)</td></tr>
+            <tr><td>2011</td><td><strong>RFC 6241</strong>: NETCONF 1.1 (当前基础)</td></tr>
+            <tr><td>2016</td><td>RFC 7950: <strong>YANG 1.1</strong> 数据建模语言</td></tr>
+            <tr><td>2018</td><td><strong>RFC 8526</strong>: NMDA 扩展 (intended/operational 分离)</td></tr>
+            <tr><td>2020-2024</td><td>Cisco/Juniper/Nokia/Huawei/Arista 全面支持</td></tr>
+            <tr><td>2025</td><td>IETF 发布 LLM-IBN NETCONF 差距分析草案 + 分页扩展</td></tr>
+            <tr><td><strong>2026</strong></td><td>RFC 6241 更新，增加分页支持；NETCONF 配置自动化成为 NetOps 基线</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Architecture -->
+    <section id="architecture" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon blue">🏗️</div><h2>2. 四层架构模型 (RFC 6241)</h2></div>
+        <div class="mermaid-diagram">
+          <pre class="mermaid">
+graph TB
+    subgraph L4["Layer 4: Content"]
+        YANG_M["YANG Models"]
+        CFG["Configuration Data"]
+        STATE["Operational State"]
+    end
+
+    subgraph L3["Layer 3: Operations"]
+        GET["get-config"]
+        EDIT["edit-config"]
+        COMMIT["commit"]
+        LOCK["lock/unlock"]
+        VAL["validate"]
+    end
+
+    subgraph L2["Layer 2: Messages"]
+        RPC["rpc / rpc-reply"]
+        ERR["rpc-error"]
+        NOTIF["notification"]
+    end
+
+    subgraph L1["Layer 1: Secure Transport"]
+        SSH["SSH (port 830)"]
+        TLS["TLS (port 6513)"]
+    end
+
+    L4 --> L3
+    L3 --> L2
+    L2 --> L1
+
+    style L4 fill:#0a1628,stroke:rgba(0,212,255,0.4)
+    style L3 fill:#0a1628,stroke:rgba(0,230,118,0.4)
+    style L2 fill:#0a1628,stroke:rgba(51,102,255,0.4)
+    style L1 fill:#0a1628,stroke:rgba(124,58,237,0.4)
+          </pre>
+        </div>
+
+        <h3>2.1 会话生命周期</h3>
+        <div class="mermaid-diagram">
+          <pre class="mermaid">
+sequenceDiagram
+    participant C as NETCONF Client
+    participant S as NETCONF Server
+
+    C->>S: SSH Connect (port 830)
+    S-->>C: &lt;hello&gt; (capabilities)
+    C-->>S: &lt;hello&gt; (capabilities)
+
+    Note over C,S: Capability Exchange Complete
+
+    C->>S: &lt;rpc&gt;&lt;get-config&gt;...
+    S-->>C: &lt;rpc-reply&gt;&lt;data&gt;...
+
+    C->>S: &lt;rpc&gt;&lt;edit-config&gt;...
+    S-->>C: &lt;ok/&gt;
+
+    C->>S: &lt;rpc&gt;&lt;commit/&gt;
+    S-->>C: &lt;ok/&gt;
+
+    C->>S: &lt;rpc&gt;&lt;close-session/&gt;
+    S-->>C: &lt;ok/&gt;
+          </pre>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Operations -->
+    <section id="operations" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon green">🔧</div><h2>3. 核心 RPC 操作</h2></div>
+
+        <div class="table-wrap"><table>
+          <thead><tr><th>操作</th><th>描述</th></tr></thead>
+          <tbody>
+            <tr><td><strong>&lt;get&gt;</strong></td><td>获取运行配置和状态数据</td></tr>
+            <tr><td><strong>&lt;get-config&gt;</strong></td><td>获取指定数据存储 (running/candidate/startup) 的配置</td></tr>
+            <tr><td><strong>&lt;edit-config&gt;</strong></td><td>修改配置: merge / replace / create / delete / remove</td></tr>
+            <tr><td><strong>&lt;copy-config&gt;</strong></td><td>复制一个数据存储到另一个</td></tr>
+            <tr><td><strong>&lt;lock&gt; / &lt;unlock&gt;</strong></td><td>排他锁定/解锁数据存储</td></tr>
+            <tr><td><strong>&lt;commit&gt;</strong></td><td>原子提交候选配置 → 运行配置</td></tr>
+            <tr><td><strong>&lt;discard-changes&gt;</strong></td><td>回滚所有未提交的候选变更</td></tr>
+            <tr><td><strong>&lt;validate&gt;</strong></td><td>校验候选配置有效性 (dry-run)</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>edit-config 操作模式</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>模式</th><th>语义</th></tr></thead>
+          <tbody>
+            <tr><td><strong>merge</strong></td><td>合并配置 (默认): 新数据并入，冲突时覆盖</td></tr>
+            <tr><td><strong>replace</strong></td><td>完全替换: 用新配置替换指定范围的现有配置</td></tr>
+            <tr><td><strong>create</strong></td><td>仅创建: 配置不存在则创建，存在则报错</td></tr>
+            <tr><td><strong>delete</strong></td><td>删除指定配置项</td></tr>
+            <tr><td><strong>remove</strong></td><td>静默移除: 不存在不报错</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>XML RPC 消息示例</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">edit-config Request (merge mode)</span></div>
+          <div class="terminal-body"><span class="comment">&lt;!-- NETCONF edit-config RPC --&gt;</span>
+&lt;rpc message-id="102"
+     xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"&gt;
+  &lt;edit-config&gt;
+    &lt;target&gt;&lt;candidate/&gt;&lt;/target&gt;
+    &lt;config&gt;
+      &lt;interfaces xmlns="urn:ietf:params:xml:ns:yang:ietf-interfaces"&gt;
+        &lt;interface&gt;
+          &lt;name&gt;GigabitEthernet0/0/0&lt;/name&gt;
+          &lt;description&gt;Uplink to Core&lt;/description&gt;
+          &lt;enabled&gt;true&lt;/enabled&gt;
+        &lt;/interface&gt;
+      &lt;/interfaces&gt;
+    &lt;/config&gt;
+  &lt;/edit-config&gt;
+&lt;/rpc&gt;</div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Datastore & Transaction -->
+    <section id="datastore" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon amber">💾</div><h2>4. 数据存储与 ACID 事务模型</h2></div>
+
+        <h3>4.1 经典数据存储</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>数据存储</th><th>描述</th></tr></thead>
+          <tbody>
+            <tr><td><strong>running</strong></td><td>设备当前活动配置 (正在转发流量)</td></tr>
+            <tr><td><strong>candidate</strong></td><td>候选配置暂存区 (可选能力 :candidate)</td></tr>
+            <tr><td><strong>startup</strong></td><td>下次启动时加载的配置 (可选能力 :startup)</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>4.2 事务工作流</h3>
+        <div class="terminal">
+          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">NETCONF Transaction Workflow</span></div>
+          <div class="terminal-body"><span class="prompt">1.</span> lock(target='candidate')          <span class="comment"># 排他锁定</span>
+<span class="prompt">2.</span> edit_config(target='candidate')     <span class="comment"># 修改候选配置</span>
+<span class="prompt">3.</span> validate(source='candidate')        <span class="comment"># dry-run 校验</span>
+<span class="prompt">4.</span> commit()                            <span class="comment"># 原子提交 candidate → running</span>
+     <span class="comment">OR discard_changes()</span>               <span class="comment"># 回滚所有变更</span>
+<span class="prompt">5.</span> unlock(target='candidate')          <span class="comment"># 释放锁</span></div>
+        </div>
+
+        <h3>4.3 Confirmed Commit (安全网)</h3>
+        <p>远程变更最危险的场景: <strong>"把自己锁在外面"</strong>。confirmed-commit 提供了超时自动回滚的安全机制：</p>
+        <div class="terminal">
+          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">Confirmed Commit Example</span></div>
+          <div class="terminal-body">&lt;rpc message-id="103"&gt;
+  &lt;commit&gt;
+    &lt;confirmed/&gt;
+    &lt;confirm-timeout&gt;300&lt;/confirm-timeout&gt;  <span class="comment">&lt;!-- 5分钟超时 --&gt;</span>
+  &lt;/commit&gt;
+&lt;/rpc&gt;
+
+<span class="comment"># 管理员 5 分钟内未发送第二次 commit 确认</span>
+<span class="comment"># → 设备自动回滚到变更前状态</span></div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- YANG -->
+    <section id="yang" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon cyan">📐</div><h2>5. YANG 数据建模语言 (RFC 7950)</h2></div>
+        <p>YANG 是 NETCONF 配套的数据建模语言，定义配置和状态数据的层次结构、类型约束和语义。</p>
+
+        <h3>5.1 YANG 关键特性</h3>
+        <div class="feature-grid">
+          <div class="feature-item"><div class="fi-icon">📋</div><h4>config false</h4><p>标记只读状态数据，与配置数据分离</p></div>
+          <div class="feature-item"><div class="fi-icon">🔗</div><h4>must 约束</h4><p>XPath 表达式定义跨节点约束关系</p></div>
+          <div class="feature-item"><div class="fi-icon">⚡</div><h4>when 条件</h4><p>条件性数据节点存在性判断</p></div>
+          <div class="feature-item"><div class="fi-icon">🧩</div><h4>augment</h4><p>扩展现有模型而不修改原文件</p></div>
+          <div class="feature-item"><div class="fi-icon">🔄</div><h4>deviation</h4><p>声明设备对标准模型的偏离</p></div>
+          <div class="feature-item"><div class="fi-icon">🏷️</div><h4>feature</h4><p>标记可选功能模块</p></div>
+        </div>
+
+        <h3>5.2 常用 YANG 模型</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>YANG 模块</th><th>RFC</th><th>描述</th></tr></thead>
+          <tbody>
+            <tr><td>ietf-interfaces</td><td>RFC 8343</td><td>接口管理</td></tr>
+            <tr><td>ietf-ip</td><td>RFC 8344</td><td>IPv4/IPv6 路由管理</td></tr>
+            <tr><td>ietf-routing</td><td>RFC 8349</td><td>路由协议管理</td></tr>
+            <tr><td>ietf-system</td><td>RFC 7317</td><td>系统基础管理</td></tr>
+            <tr><td>ietf-acl</td><td>RFC 8519</td><td>访问控制列表</td></tr>
+            <tr><td>openconfig-interfaces</td><td>OpenConfig</td><td>跨厂商接口模型</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- NMDA -->
+    <section id="nmda" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon purple">🔬</div><h2>6. NMDA 扩展 (RFC 8526)</h2></div>
+        <p>NMDA (Network Management Datastore Architecture) 将经典数据存储细分为五个逻辑存储，实现了<strong>意图配置</strong>与<strong>实际运行状态</strong>的分离：</p>
+
+        <div class="table-wrap"><table>
+          <thead><tr><th>数据存储</th><th>描述</th><th>可写</th></tr></thead>
+          <tbody>
+            <tr><td><strong>running</strong></td><td>运行配置</td><td>是</td></tr>
+            <tr><td><strong>intended</strong></td><td>意图配置 (期望状态)</td><td>是</td></tr>
+            <tr><td><strong>operational</strong></td><td>操作状态 (实际生效状态)</td><td>否 (只读)</td></tr>
+            <tr><td><strong>system</strong></td><td>系统控制的配置</td><td>否</td></tr>
+            <tr><td><strong>ephemeral</strong></td><td>临时配置 (重启后消失)</td><td>是</td></tr>
+          </tbody>
+        </table></div>
+
+        <p>NMDA 新增的 <strong>&lt;get-data&gt;</strong> 操作替代传统的 &lt;get-config&gt; 和 &lt;get&gt;，支持直接按数据存储类型精确查询。</p>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Comparison -->
+    <section id="comparison" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon amber">⚖️</div><h2>7. 协议对比</h2></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>维度</th><th>NETCONF</th><th>gNMI</th><th>RESTCONF</th><th>SNMP</th></tr></thead>
+          <tbody>
+            <tr><td><strong>传输</strong></td><td>SSH (830)</td><td>gRPC/HTTP2</td><td>HTTPS (443)</td><td>UDP (161)</td></tr>
+            <tr><td><strong>序列化</strong></td><td>XML</td><td>Protobuf</td><td>JSON/XML</td><td>ASN.1 BER</td></tr>
+            <tr><td><strong>候选数据存储</strong></td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+            <tr><td><strong>原子提交</strong></td><td>✅ commit</td><td>❌ (单消息)</td><td>❌</td><td>N/A</td></tr>
+            <tr><td><strong>确认提交</strong></td><td>✅ confirmed-commit</td><td>❌</td><td>❌</td><td>N/A</td></tr>
+            <tr><td><strong>Dry-run 校验</strong></td><td>✅ validate</td><td>❌</td><td>❌</td><td>❌</td></tr>
+            <tr><td><strong>锁机制</strong></td><td>✅ lock/unlock</td><td>❌</td><td>❌</td><td>❌</td></tr>
+            <tr><td><strong>流式遥测</strong></td><td>❌ (仅 polling)</td><td>✅ Subscribe</td><td>❌</td><td>❌</td></tr>
+            <tr><td><strong>最佳场景</strong></td><td>核心网事务配置</td><td>AI 网络流式遥测</td><td>DevOps 快速 API</td><td>基础监控</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- SDN -->
+    <section id="sdn" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon blue">🔌</div><h2>8. SDN 控制器集成</h2></div>
+        <h3>8.1 在 SDN 架构中的角色</h3>
+        <div class="mermaid-diagram">
+          <pre class="mermaid">
+graph TB
+    CTRL["SDN Controller<br/>ODL / ONOS / NSO"]
+
+    subgraph PLUGIN["NETCONF Southbound Plugin"]
+        YANG_DYN["Dynamic YANG Mount"]
+        TXN["Transaction Orchestrator"]
+        CMT["Commit Coordinator"]
+    end
+
+    CTRL --> PLUGIN
+
+    PLUGIN -->|NETCONF over SSH:830| R1["Router-1"]
+    PLUGIN -->|NETCONF over SSH:830| R2["Switch-1"]
+    PLUGIN -->|NETCONF over SSH:830| R3["Firewall-1"]
+
+    style CTRL fill:#0a1628,stroke:rgba(0,212,255,0.5),stroke-width:2px
+    style PLUGIN fill:#0c0f17,stroke:rgba(0,230,118,0.3),stroke-dasharray: 5
+    style R1 fill:#0a1628,stroke:rgba(51,102,255,0.3)
+    style R2 fill:#0a1628,stroke:rgba(51,102,255,0.3)
+    style R3 fill:#0a1628,stroke:rgba(51,102,255,0.3)
+          </pre>
+        </div>
+
+        <h3>8.2 Ansible 自动化示例</h3>
+        <div class="terminal">
+          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">Ansible Playbook — NETCONF Interface Config</span></div>
+          <div class="terminal-body"><span class="cmd">- name</span>: Configure interfaces via NETCONF
+  <span class="cmd">hosts</span>: switches
+  <span class="cmd">tasks</span>:
+    <span class="cmd">- name</span>: Set interface description
+      <span class="cmd">netconf_config</span>:
+        host: "{{ <span class="prompt">inventory_hostname</span> }}"
+        username: admin
+        password: admin123
+        target: candidate
+        content: |
+          &lt;config&gt;
+            &lt;interfaces xmlns="urn:ietf:params:xml:ns:yang:ietf-interfaces"&gt;
+              &lt;interface&gt;
+                &lt;name&gt;GigabitEthernet0/0/0&lt;/name&gt;
+                &lt;description&gt;Uplink to Core&lt;/description&gt;
+              &lt;/interface&gt;
+            &lt;/interfaces&gt;
+          &lt;/config&gt;
+
+    <span class="cmd">- name</span>: Commit candidate to running
+      <span class="cmd">netconf_config</span>:
+        host: "{{ <span class="prompt">inventory_hostname</span> }}"
+        operation: commit</div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Dev -->
+    <section id="dev" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon green">💻</div><h2>9. Python ncclient 开发实践</h2></div>
+        <div class="terminal">
+          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">ncclient — Full Transaction Workflow</span></div>
+          <div class="terminal-body"><span class="cmd">from</span> ncclient <span class="cmd">import</span> manager
+
+<span class="comment"># Connect to NETCONF device</span>
+<span class="cmd">with</span> manager.connect(
+    host=<span class="prompt">'192.168.1.1'</span>,
+    port=<span class="prompt">830</span>,
+    username=<span class="prompt">'admin'</span>,
+    password=<span class="prompt">'admin123'</span>,
+    hostkey_verify=<span class="cmd">False</span>,
+    device_params={<span class="prompt">'name'</span>: <span class="prompt">'csr'</span>}
+) <span class="cmd">as</span> m:
+    <span class="comment"># Get config</span>
+    reply = m.get_config(source=<span class="prompt">'running'</span>,
+        filter=(<span class="prompt">'subtree'</span>, <span class="prompt">'...filter...'</span>))
+
+    <span class="comment"># Transactional edit</span>
+    config = <span class="prompt">'&lt;config&gt;...&lt;/config&gt;'</span>
+    m.lock(target=<span class="prompt">'candidate'</span>)
+    m.edit_config(target=<span class="prompt">'candidate'</span>, config=config)
+    m.validate(source=<span class="prompt">'candidate'</span>)       <span class="comment"># dry-run</span>
+    m.commit()                              <span class="comment"># atomic apply</span>
+    m.unlock(target=<span class="prompt">'candidate'</span>)
+
+    <span class="comment"># Confirmed commit with 5-min safety net</span>
+    m.lock(target=<span class="prompt">'candidate'</span>)
+    m.edit_config(target=<span class="prompt">'candidate'</span>, config=config)
+    m.commit(confirmed=<span class="cmd">True</span>, timeout=<span class="prompt">'300'</span>)
+    <span class="comment"># ... verify connectivity ...</span>
+    m.commit()                              <span class="comment"># confirm or auto-rollback</span>
+    m.unlock(target=<span class="prompt">'candidate'</span>)</div>
+        </div>
+
+        <h3>9.1 Containerlab 快速搭建</h3>
+        <div class="terminal">
+          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">Containerlab — NETCONF Lab</span></div>
+          <div class="terminal-body"><span class="comment"># netconf-lab.yml</span>
+name: netconf-lab
+topology:
+  nodes:
+    router1:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux
+
+<span class="comment"># Deploy</span>
+sudo containerlab deploy -t netconf-lab.yml
+
+<span class="comment"># Verify NETCONF</span>
+ssh -p 830 admin@router1 -s netconf
+<span class="comment"># Send hello:</span>
+<span class="comment"># &lt;?xml version="1.0"?&gt;</span>
+<span class="comment"># &lt;hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"&gt;</span>
+<span class="comment">#   &lt;capabilities&gt;</span>
+<span class="comment">#     &lt;capability&gt;urn:ietf:params:netconf:base:1.0&lt;/capability&gt;</span>
+<span class="comment">#   &lt;/capabilities&gt;</span>
+<span class="comment"># &lt;/hello&gt;</span>
+<span class="comment"># ]]>]]></span></div>
+        </div>
+
+        <h3>9.2 2025 最新进展: LLM-IBN 差距分析</h3>
+        <p>IETF 于 2025 年 11 月发布了草案 <strong>draft-zeng-opsawg-llm-netconf-gap-00</strong>，系统分析了 NETCONF 在 LLM 驱动的意图网络中的局限性：</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>差距领域</th><th>描述</th></tr></thead>
+          <tbody>
+            <tr><td><strong>语义发现缺失</strong></td><td>YANG 模型无法在运行时自描述，LLM 无法动态理解模型语义</td></tr>
+            <tr><td><strong>多设备关联上下文</strong></td><td>NETCONF 会话间不共享意图 ID 或跨设备关联信息</td></tr>
+            <tr><td><strong>高频 KPI 遥测</strong></td><td>Notification 机制吞吐量有限，不适用于亚秒级 KPI</td></tr>
+            <tr><td><strong>细粒度 RBAC</strong></td><td>commit 是原子操作，无法按 leaf 级别进行访问控制</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <footer class="site-footer reveal">
+      <span>© 2026 SDN Research · Built with ❤️</span>
+      <span>CC BY 4.0 · <a href="https://github.com/zhukingliu/sdn-research">GitHub</a></span>
+    </footer>
+
+  </main>
+</div>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>

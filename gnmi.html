@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gNMI 调研 | SDN Research</title>
+<meta name="description" content="gNMI (gRPC Network Management Interface) 深度调研 — 协议架构、流式遥测、OpenConfig YANG、实战案例">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true, theme: 'dark',
+    themeVariables: {
+      primaryColor: '#0c1a2b', primaryTextColor: '#e0e6f0', primaryBorderColor: 'rgba(0,200,255,0.3)',
+      lineColor: 'rgba(0,200,255,0.5)', secondaryColor: '#0a1628', tertiaryColor: '#0c0f17',
+      fontFamily: '"JetBrains Mono","Noto Sans SC",monospace', fontSize: '13px',
+      sequenceNumberColor: '#00d4ff', actorBkg: '#0c1a2b', actorBorder: 'rgba(0,200,255,0.3)',
+      actorTextColor: '#e0e6f0', signalColor: '#8899b4', labelTextColor: '#e0e6f0',
+      noteBkgColor: 'rgba(0,200,255,0.06)', activationBkgColor: 'rgba(0,200,255,0.08)',
+    }
+  });
+</script>
+</head>
+<body>
+
+<canvas id="particle-canvas"></canvas>
+<button class="sidebar-toggle" aria-label="Menu">☰</button>
+<button class="back-to-top" aria-label="Back to top">↑</button>
+
+<div class="app-container">
+
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <a href="index.html" class="sidebar-logo">
+        <div class="logo-icon">⚡</div>
+        <div class="logo-text">SDN Research<small>gNMI Report</small></div>
+      </a>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section"><div class="nav-section-title">导航</div>
+        <a href="index.html" class="nav-link"><span class="nav-dot"></span>← 返回门户</a>
+        <a href="openwifi.html" class="nav-link"><span class="nav-dot"></span>OpenWiFi 调研</a>
+        <a href="netconf.html" class="nav-link"><span class="nav-dot"></span>NETCONF 调研</a>
+      </div>
+      <div class="nav-section"><div class="nav-section-title">本页</div>
+        <a href="#overview" class="nav-link active"><span class="nav-dot"></span>概述与背景</a>
+        <a href="#architecture" class="nav-link"><span class="nav-dot"></span>协议栈与架构</a>
+        <a href="#rpc" class="nav-link"><span class="nav-dot"></span>四大 RPC 操作</a>
+        <a href="#subscribe" class="nav-link"><span class="nav-dot"></span>Subscribe 流式遥测</a>
+        <a href="#yang" class="nav-link"><span class="nav-dot"></span>OpenConfig YANG</a>
+        <a href="#tools" class="nav-link"><span class="nav-dot"></span>工具与实践</a>
+        <a href="#comparison" class="nav-link"><span class="nav-dot"></span>协议对比</a>
+        <a href="#sdn" class="nav-link"><span class="nav-dot"></span>AI 时代与 SDN</a>
+        <a href="#dev" class="nav-link"><span class="nav-dot"></span>开发实践</a>
+      </div>
+    </nav>
+    <div class="sidebar-footer"><span>🟢 gNMI v0.10 · 2026.06</span></div>
+  </aside>
+
+  <main class="main-content">
+
+    <div class="hero reveal">
+      <div class="hero-badge"><span class="pulse"></span> RESEARCH REPORT</div>
+      <h1>gNMI<br>gRPC Network Management Interface</h1>
+      <p class="hero-subtitle">
+        由 Google 与 OpenConfig 工作组联合开发的新一代网络管理协议。基于 gRPC/HTTP2 + Protobuf，
+        实现亚秒级流式遥测与模型驱动的网络配置管理。
+      </p>
+      <div class="hero-meta">
+        <div class="hero-meta-item"><span class="meta-icon">📅</span> 2026-06-12</div>
+        <div class="hero-meta-item"><span class="meta-icon">📌</span> gNMI v0.10.0</div>
+        <div class="hero-meta-item"><span class="meta-icon">🏢</span> OpenConfig · Google</div>
+        <div class="hero-meta-item"><span class="meta-icon">📄</span> CC BY 4.0</div>
+      </div>
+      <div style="margin-top:18px;">
+        <span class="tag cyan">gNMI</span><span class="tag blue">gRPC</span><span class="tag green">Streaming</span>
+        <span class="tag purple">Protobuf</span><span class="tag cyan">OpenConfig</span><span class="tag blue">Telemetry</span>
+      </div>
+    </div>
+
+    <!-- Overview -->
+    <section id="overview" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon cyan">📖</div><h2>1. 概述与背景</h2></div>
+        <h3>1.1 什么是 gNMI</h3>
+        <p><strong>gNMI (gRPC Network Management Interface)</strong> 是由 Google 与 <strong>OpenConfig</strong> 工作组联合开发的新一代网络管理协议。使用 <strong>gRPC</strong> (基于 HTTP/2) 作为传输层，<strong>Protocol Buffers (protobuf)</strong> 作为二进制序列化格式，为网络设备提供统一的配置管理与状态监控接口。</p>
+        <blockquote>gNMI 被设计为"单一协议解决 SNMP 监控低效 + NETCONF 流式遥测缺失"困境，是云原生网络的基石协议。</blockquote>
+
+        <h3>1.2 设计动机</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>痛点 (传统协议)</th><th>gNMI 解决方案</th></tr></thead>
+          <tbody>
+            <tr><td>SNMP 轮询效率低、不支持配置</td><td>Push-based 流式遥测 + Set() 配置操作</td></tr>
+            <tr><td>NETCONF 仅支持 XML 轮询</td><td>Protobuf 二进制编码 + 订阅式推送</td></tr>
+            <tr><td>厂商私有 MIB 碎片化</td><td>OpenConfig 统一 YANG 模型</td></tr>
+            <tr><td>缺乏实时性</td><td>亚秒级 ON_CHANGE 推送</td></tr>
+            <tr><td>带宽和 CPU 开销高</td><td>gRPC/HTTP2 多路复用 + Protobuf 压缩 (~60% 带宽节省)</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>1.3 发展历程</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>时间</th><th>里程碑</th></tr></thead>
+          <tbody>
+            <tr><td>2016</td><td>Google 与 OpenConfig 工作组发布 gNMI 初始规范</td></tr>
+            <tr><td>2018</td><td>gNMI v0.4.0 发布，核心 RPC 定义稳定</td></tr>
+            <tr><td>2020-2023</td><td>Cisco、Juniper、Arista、Nokia 等主流厂商全面支持</td></tr>
+            <tr><td>2024</td><td>gNMI v0.10.0，增强扩展性 + gRPC Server Reflection</td></tr>
+            <tr><td>2025</td><td>SONiC 社区全面集成 gNMI，星融元发布 AsterNOS gNMI 方案</td></tr>
+            <tr><td><strong>2026</strong></td><td><strong>gNMI 成为 AI 训练网络 (RoCE/InfiniBand) 监控的事实标准</strong></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Architecture -->
+    <section id="architecture" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon blue">🏗️</div><h2>2. 协议栈与核心架构</h2></div>
+        <div class="mermaid-diagram">
+          <pre class="mermaid">
+graph TB
+    subgraph YANG["YANG Models"]
+        OC["OpenConfig YANG Models"]
+        IETF["IETF YANG Models"]
+    end
+
+    subgraph RPC["gNMI RPC Interface"]
+        CAPS["Capabilities"]
+        GET["Get"]
+        SET["Set"]
+        SUB["Subscribe"]
+    end
+
+    subgraph GRPC["gRPC Framework"]
+        HTTP2["HTTP/2 Bidirectional Streaming"]
+        TLS["TLS 1.3 mTLS"]
+    end
+
+    subgraph PB["Protocol Buffers"]
+        BIN["Binary Serialization"]
+        SCHEMA["Schema-Driven (.proto)"]
+    end
+
+    YANG --> RPC
+    RPC --> GRPC
+    GRPC --> PB
+
+    style YANG fill:#0a1628,stroke:rgba(0,212,255,0.4)
+    style RPC fill:#0a1628,stroke:rgba(0,230,118,0.4)
+    style GRPC fill:#0a1628,stroke:rgba(51,102,255,0.4)
+    style PB fill:#0a1628,stroke:rgba(124,58,237,0.4)
+          </pre>
+        </div>
+        <h3>2.1 通信模型</h3>
+        <div class="feature-grid">
+          <div class="feature-item"><div class="fi-icon">🔄</div><h4>单向 RPC</h4><p>Capabilities / Get / Set — Client → Server → Response</p></div>
+          <div class="feature-item"><div class="fi-icon">🌊</div><h4>双向流 RPC</h4><p>Subscribe — Client ⇄ Server，持续推送</p></div>
+          <div class="feature-item"><div class="fi-icon">📡</div><h4>多路复用</h4><p>单条 HTTP/2 连接承载多个并发流</p></div>
+          <div class="feature-item"><div class="fi-icon">🔐</div><h4>安全传输</h4><p>TLS 1.3 双向认证 (mTLS)，端口 57400 (IANA)</p></div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- RPC Operations -->
+    <section id="rpc" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon green">🔧</div><h2>3. 四大 RPC 操作详解</h2></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>操作</th><th>用途</th><th>Proto 字段</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Capabilities</strong></td><td>发现设备支持的 YANG 模型、编码格式、gNMI 版本、扩展能力</td><td><code>CapabilityRequest/CapabilityResponse</code></td></tr>
+            <tr><td><strong>Get</strong></td><td>检索配置/状态数据的<strong>一次性快照</strong> (pull 模式)。支持 ALL/CONFIG/STATE/OPERATIONAL 类型过滤</td><td><code>GetRequest/GetResponse</code></td></tr>
+            <tr><td><strong>Set</strong></td><td>修改设备配置: <strong>update</strong> (upsert) / <strong>replace</strong> (先删后建) / <strong>delete</strong> (删除)</td><td><code>SetRequest/SetResponse</code></td></tr>
+            <tr><td><strong>Subscribe</strong></td><td>建立<strong>流式遥测</strong>会话: ONCE / POLL / STREAM (SAMPLE/ON_CHANGE)</td><td><code>SubscribeRequest/SubscribeResponse</code></td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Capabilities 示例</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">gnmic capabilities</span></div>
+          <div class="terminal-body"><span class="cmd">gnmic</span> -a 192.168.1.1:57400 --insecure <span class="cmd">capabilities</span>
+<span class="comment"># Response:</span>
+gNMI version: 0.10.0
+<span class="cmd">supported models:</span>
+  - openconfig-interfaces, openconfig, 2.5.0
+  - openconfig-bgp, openconfig, 6.0.0
+  - openconfig-telemetry, openconfig, 1.0.0
+<span class="cmd">supported encodings:</span>
+  - JSON, JSON_IETF, PROTO, BYTES, ASCII</div>
+        </div>
+
+        <h4>Set 操作类型</h4>
+        <div class="table-wrap"><table>
+          <thead><tr><th>操作</th><th>描述</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Update</strong></td><td>创建或更新指定路径的配置 (upsert 语义)</td></tr>
+            <tr><td><strong>Replace</strong></td><td>替换指定路径的配置 (先删除后创建)</td></tr>
+            <tr><td><strong>Delete</strong></td><td>删除指定路径的配置</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Subscribe -->
+    <section id="subscribe" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon purple">🌊</div><h2>4. Subscribe 流式遥测机制</h2></div>
+
+        <div class="mermaid-diagram">
+          <pre class="mermaid">
+sequenceDiagram
+    participant C as gNMI Client
+    participant D as gNMI Target
+
+    Note over C,D: Subscribe (STREAM + SAMPLE mode)
+
+    C->>D: SubscribeRequest (path + mode + interval)
+    D-->>C: SubscribeResponse (sync=true, initial snapshot)
+
+    loop Every 5s
+        D-->>C: SubscribeResponse (update)
+        Note right of C: counters / rates / health
+    end
+
+    Note over C,D: Subscribe (STREAM + ON_CHANGE mode)
+
+    C->>D: SubscribeRequest (path + ON_CHANGE)
+    D-->>C: SubscribeResponse (sync=true, initial state)
+    D-->>C: SubscribeResponse (update: link down!)
+    Note right of C: Event-driven push
+    D-->>C: SubscribeResponse (update: BGP peer changed)
+          </pre>
+        </div>
+
+        <h3>4.1 订阅模式对比</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>模式</th><th>触发方式</th><th>典型间隔</th><th>场景</th></tr></thead>
+          <tbody>
+            <tr><td><strong>ONCE</strong></td><td>单次快照后关闭</td><td>—</td><td>等价 Get，通过流返回</td></tr>
+            <tr><td><strong>POLL</strong></td><td>客户端主动发起 poll</td><td>按需</td><td>客户端驱动采样</td></tr>
+            <tr><td><strong>STREAM · SAMPLE</strong></td><td>定时采样推送</td><td>1s ~ 600s</td><td>常规监控 / 容量规划</td></tr>
+            <tr><td><strong>STREAM · ON_CHANGE</strong></td><td>值变更时推送</td><td>亚秒级</td><td>链路状态 / BGP Peer 变更</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>4.2 ON_CHANGE 在 AI 训练网络的价值</h3>
+        <p>GPU 间 RDMA 通信对丢包极为敏感。gNMI ON_CHANGE 可<strong>实时捕获</strong>以下微秒级事件，这是 SNMP 轮询无法做到的：</p>
+        <ul>
+          <li><strong>PFC (Priority Flow Control)</strong> 暂停帧激增 → RoCE 网络拥塞预警</li>
+          <li><strong>ECN 标记</strong>异常增长 → 主动降速以避免丢包</li>
+          <li><strong>缓冲区占用</strong>瞬时冲高 → 微突发 (microburst) 检测</li>
+        </ul>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- YANG -->
+    <section id="yang" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon cyan">📐</div><h2>5. OpenConfig YANG 数据模型</h2></div>
+        <p>OpenConfig 是由 Google、Microsoft、AT&T、BT 等大型网络运营商组成的开放工作组，定义<strong>厂商无关的网络配置与遥测数据模型</strong>。</p>
+
+        <h3>5.1 模型覆盖范围</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>模型类别</th><th>典型 Path</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Interface</strong></td><td><code>/interfaces/interface[name=Ethernet1]/state/counters</code></td></tr>
+            <tr><td><strong>Routing / BGP</strong></td><td><code>/network-instances/network-instance/protocols/protocol/bgp</code></td></tr>
+            <tr><td><strong>Telemetry</strong></td><td><code>/telemetry-system/sensor-groups/...</code></td></tr>
+            <tr><td><strong>QoS</strong></td><td><code>/qos/interfaces/interface/input/classifiers/...</code></td></tr>
+            <tr><td><strong>Platform</strong></td><td><code>/components/component/state/temperature</code></td></tr>
+            <tr><td><strong>LLDP</strong></td><td><code>/lldp/interfaces/interface/neighbors/...</code></td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>5.2 编码格式效率对比</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>编码</th><th>数据大小</th><th>解析速度</th><th>适用场景</th></tr></thead>
+          <tbody>
+            <tr><td><strong>PROTO</strong> (protobuf)</td><td>⭐⭐⭐ 最小</td><td>⭐⭐⭐ 最快</td><td>生产遥测 / 大规模流式</td></tr>
+            <tr><td><strong>JSON_IETF</strong></td><td>⭐⭐</td><td>⭐⭐</td><td>兼容 IETF YANG 标准</td></tr>
+            <tr><td><strong>JSON</strong></td><td>⭐⭐</td><td>⭐⭐</td><td>开发调试 / HTTP 集成</td></tr>
+            <tr><td><strong>BYTES</strong></td><td>⭐⭐⭐</td><td>⭐⭐⭐</td><td>高性能场景</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Tools -->
+    <section id="tools" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon blue">🛠️</div><h2>6. 客户端工具与实践</h2></div>
+
+        <h3>6.1 gnmic (官方推荐 CLI)</h3>
+        <div class="terminal">
+          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">gnmic Installation & Usage</span></div>
+          <div class="terminal-body"><span class="comment"># Install gnmic</span>
+curl -sL https://github.com/openconfig/gnmic/releases/download/v0.37.0/gnmic_0.37.0_linux_amd64.tar.gz | tar xz
+sudo mv gnmic /usr/local/bin/
+
+<span class="comment"># Stream subscribe - interface counters every 10s</span>
+<span class="cmd">gnmic</span> -a 192.168.1.1:57400 --insecure <span class="cmd">subscribe</span> \
+  --path "/interfaces/interface/state/counters" \
+  --mode stream --stream-mode sample --sample-interval 10s
+
+<span class="comment"># ON_CHANGE subscribe - BGP session state</span>
+<span class="cmd">gnmic</span> -a 192.168.1.1:57400 <span class="cmd">subscribe</span> \
+  --path "/network-instances/network-instance/protocols/protocol/bgp/..." \
+  --mode stream --stream-mode on_change
+
+<span class="comment"># Set - update interface description</span>
+<span class="cmd">gnmic</span> -a 192.168.1.1:57400 <span class="cmd">set</span> \
+  --update-path "/interfaces/interface[name=Ethernet1]/config/description" \
+  --update-value "Uplink-to-Core"</div>
+        </div>
+
+        <h3>6.2 Telegraf gNMI Plugin</h3>
+        <div class="terminal">
+          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">telegraf.conf — gNMI input</span></div>
+          <div class="terminal-body">[[inputs.gnmi]]
+  addresses = ["192.168.1.1:57400", "192.168.1.2:57400"]
+
+  [[inputs.gnmi.subscription]]
+    name = "interfaces"
+    path = "/interfaces/interface/state/counters"
+    subscription_mode = "sample"
+    sample_interval = "30s"
+
+  [[inputs.gnmi.subscription]]
+    name = "bgp"
+    path = "/network-instances/network-instance/protocols/protocol/bgp"
+    subscription_mode = "on_change"</div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Comparison -->
+    <section id="comparison" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon amber">⚖️</div><h2>7. 与 NETCONF / RESTCONF / SNMP 对比</h2></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>维度</th><th>gNMI</th><th>NETCONF</th><th>RESTCONF</th><th>SNMP</th></tr></thead>
+          <tbody>
+            <tr><td><strong>传输</strong></td><td>gRPC/HTTP2</td><td>SSH (830)</td><td>HTTPS (443)</td><td>UDP (161)</td></tr>
+            <tr><td><strong>序列化</strong></td><td>Protobuf (binary)</td><td>XML</td><td>JSON/XML</td><td>ASN.1 BER</td></tr>
+            <tr><td><strong>配置操作</strong></td><td>✅ Set (update/replace/delete)</td><td>✅ edit-config (事务)</td><td>✅ PUT/PATCH</td><td>❌</td></tr>
+            <tr><td><strong>流式遥测</strong></td><td>✅ Subscribe (push)</td><td>❌ (仅 polling)</td><td>❌ (仅 polling)</td><td>❌ (仅 polling)</td></tr>
+            <tr><td><strong>事务语义</strong></td><td>单消息事务</td><td>✅ 多步事务 + 回滚</td><td>❌</td><td>N/A</td></tr>
+            <tr><td><strong>AI 网络适配</strong></td><td>✅ 亚秒级推流</td><td>⚠️ 不支持</td><td>⚠️ 不支持</td><td>❌</td></tr>
+            <tr><td><strong>效率</strong></td><td>⭐⭐⭐ 极高</td><td>⭐⭐ 中等</td><td>⭐⭐ 中等</td><td>⭐ 低</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- SDN -->
+    <section id="sdn" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon purple">🔬</div><h2>8. AI 时代与 SDN 融合</h2></div>
+        <h3>8.1 gNMI 在 AI 训练网络的价值</h3>
+        <ul>
+          <li><strong>亚秒级微突发检测:</strong> GPU 间 RDMA 通信对丢包极为敏感，ON_CHANGE 可实时捕获 PFC 暂停帧激增</li>
+          <li><strong>闭环自动调优:</strong> 遥测数据 → AI 分析引擎 → Set() 下发优化策略 → 验证效果</li>
+          <li><strong>全栈可观测:</strong> 从光模块温度到 BGP 路由表，统一 Path 模型</li>
+          <li><strong>LLM-Driven IBN:</strong> 模型驱动特性使其成为 LLM 翻译意图到设备配置的首选协议</li>
+        </ul>
+
+        <h3>8.2 在 SDN 架构中的定位</h3>
+        <div class="mermaid-diagram">
+          <pre class="mermaid">
+graph TB
+    CTRL["SDN Controller / NMS"]
+
+    GNMI["gNMI<br/>Telemetry + Config"]
+    NETCONF["NETCONF<br/>Transactional Config"]
+    OFLOW["OpenFlow<br/>Flow Table Control"]
+
+    DEVICE["Network Device"]
+
+    CTRL --> GNMI
+    CTRL --> NETCONF
+    CTRL --> OFLOW
+    GNMI --> DEVICE
+    NETCONF --> DEVICE
+    OFLOW --> DEVICE
+
+    style CTRL fill:#0a1628,stroke:rgba(0,212,255,0.5),stroke-width:2px
+    style GNMI fill:#0a1628,stroke:rgba(0,230,118,0.4)
+    style NETCONF fill:#0a1628,stroke:rgba(0,212,255,0.4)
+    style OFLOW fill:#0a1628,stroke:rgba(255,171,0,0.4)
+    style DEVICE fill:#0a1628,stroke:rgba(136,153,180,0.3)
+          </pre>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Dev -->
+    <section id="dev" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon green">💻</div><h2>9. Python 开发实践</h2></div>
+        <div class="terminal">
+          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">pygnmi — Python gNMI Client</span></div>
+          <div class="terminal-body"><span class="cmd">from</span> pygnmi <span class="cmd">import</span> gNMIclient
+
+<span class="comment"># Connect to device</span>
+<span class="cmd">with</span> gNMIclient(
+    target=(<span class="prompt">'192.168.1.1'</span>, <span class="prompt">57400</span>),
+    username=<span class="prompt">'admin'</span>,
+    password=<span class="prompt">'admin123'</span>,
+    insecure=<span class="cmd">True</span>
+) <span class="cmd">as</span> gc:
+    <span class="comment"># Capabilities</span>
+    caps = gc.capabilities()
+    <span class="cmd">print</span>(<span class="prompt">f"Models: {[m['name'] for m in caps['supported_models']]}"</span>)
+
+    <span class="comment"># Get - interface state</span>
+    result = gc.get(
+        path=[<span class="prompt">'/interfaces/interface[name=Ethernet1]/state'</span>],
+        encoding=<span class="prompt">'json_ietf'</span>
+    )
+
+    <span class="comment"># Set - update interface</span>
+    gc.set(
+        update=[
+            (<span class="prompt">'/interfaces/interface[name=Ethernet1]/config/description'</span>,
+             <span class="prompt">'Uplink-to-Core'</span>)
+        ]
+    )
+
+    <span class="comment"># Subscribe - streaming telemetry</span>
+    subscription = gc.subscribe(
+        subscribe={
+            <span class="prompt">'interfaces'</span>: {
+                <span class="prompt">'path'</span>: <span class="prompt">'/interfaces/interface/state/counters'</span>,
+                <span class="prompt">'mode'</span>: <span class="prompt">'stream'</span>,
+                <span class="prompt">'stream_mode'</span>: <span class="prompt">'sample'</span>,
+                <span class="prompt">'sample_interval'</span>: <span class="prompt">10000000000</span>  <span class="comment"># 10s in ns</span>
+            }
+        }
+    )
+    <span class="cmd">for</span> response <span class="cmd">in</span> subscription:
+        <span class="cmd">print</span>(response)</div>
+        </div>
+
+        <h3>9.1 一键环境搭建</h3>
+        <div class="terminal">
+          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">Quick Start</span></div>
+          <div class="terminal-body"><span class="comment"># Launch gNMI target simulator</span>
+docker run -d --name gnmi-target -p 57400:57400 \
+  ghcr.io/openconfig/gnmi-target:latest
+
+<span class="comment"># Install gnmic CLI</span>
+curl -sL https://github.com/openconfig/gnmic/releases/download/v0.37.0/gnmic_0.37.0_linux_amd64.tar.gz | tar xz
+
+<span class="comment"># Discover capabilities</span>
+./gnmic -a localhost:57400 --insecure capabilities
+
+<span class="comment"># Stream subscribe</span>
+./gnmic -a localhost:57400 --insecure subscribe \
+  --path "/interfaces/interface/state/counters" \
+  --mode stream --stream-mode sample --sample-interval 5s
+
+<span class="comment"># Install Python SDK</span>
+pip install pygnmi</div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="site-footer reveal">
+      <span>© 2026 SDN Research · Built with ❤️</span>
+      <span>CC BY 4.0 · <a href="https://github.com/zhukingliu/sdn-research">GitHub</a></span>
+    </footer>
+
+  </main>
+</div>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>
