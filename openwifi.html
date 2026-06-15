@@ -1361,62 +1361,81 @@ curl -s https://controller:16002/api/v1/device/AABBCCDDEEFF/state | jq .
 <span class="comment"># →{"state": "configured", "hash": "d4e5...", "uptime": 1200, ...}</span></div>
         </div>
 
-        <h3>13.4 案例四：Python 自动化测试 (Mobly WiFi)</h3>
+        <h3>13.4 案例四：Java REST API 自动化配置</h3>
         <p>
-          OpenWiFi 社区提供了 <strong>mobly-wifi</strong> Python 包，可用于自动化测试和 CI/CD 集成。
-          以下展示如何编写自动化测试脚本控制 AP 创建 Wi-Fi 网络：
+          通过 CloudSDK 的 OpenAPI 北向接口，使用 Java 标准 HTTP 客户端即可实现 AP 自动化管理。
         </p>
         <div class="terminal">
           <div class="terminal-header">
             <span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span>
-            <span class="terminal-title">Python Automation — ap_test.py</span>
+            <span class="terminal-title">Java Automation -- OpenWiFiManager.java</span>
           </div>
-          <div class="terminal-body"><span class="comment">"""Mobly WiFi — 自动化 AP 测试脚本"""</span>
-<span class="cmd">from</span> mobly <span class="cmd">import</span> base_test, test_runner
-<span class="cmd">from</span> mobly.controllers.wifi <span class="cmd">import</span> openwrt_device, wifi_configs
+          <div class="terminal-body"><span class="comment">// OpenWiFi CloudSDK REST API Java client</span>
+<span class="cmd">import</span> java.net.http.*;
+<span class="cmd">import</span> java.net.URI;
+<span class="cmd">import</span> com.google.gson.*;
 
-<span class="cmd">class</span> <span class="prompt">OpenWiFiAPTest</span>(base_test.BaseTestClass):
+<span class="cmd">public class</span> <span class="prompt">OpenWiFiManager</span> {
+    <span class="cmd">private final</span> HttpClient client = HttpClient.newHttpClient();
+    <span class="cmd">private final</span> String baseUrl = <span class="prompt">"https://controller:16002"</span>;
+    <span class="cmd">private final</span> String token = <span class="prompt">"your-api-token"</span>;
 
-    <span class="cmd">def</span> <span class="prompt">setup_class</span>(self):
-        <span class="cmd">self</span>.ap = <span class="cmd">self</span>.register_controller(
-            openwrt_device
-        )[<span class="prompt">0</span>]
+    <span class="cmd">public</span> String getDevices() <span class="cmd">throws</span> Exception {
+        HttpRequest req = HttpRequest.newBuilder()
+            .uri(URI.create(baseUrl + <span class="prompt">"/api/v1/devices"</span>))
+            .header(<span class="prompt">"Authorization"</span>, <span class="prompt">"Bearer "</span> + token)
+            .GET().build();
+        <span class="cmd">return</span> client.send(req, HttpResponse.BodyHandlers.ofString()).body();
+    }
 
-    <span class="cmd">def</span> <span class="prompt">test_wpa3_enterprise</span>(self):
-        <span class="comment"># 配置 WPA3-Enterprise Wi-Fi 网络</span>
-        config = wifi_configs.WiFiConfig(
-            <span class="cmd">channel</span>=<span class="prompt">36</span>,
-            <span class="cmd">ssid</span>=<span class="prompt">"Enterprise-WPA3"</span>,
-            <span class="cmd">security</span>=<span class="prompt">"wpa3"</span>,
-            <span class="cmd">radius_server</span>=<span class="prompt">"192.168.1.10"</span>,
-            <span class="cmd">radius_secret</span>=<span class="prompt">"radius-secret-key"</span>
-        )
-        wifi_info = <span class="cmd">self</span>.ap.start_wifi(config=config)
-        <span class="cmd">self</span>.ap.log.info(
-            <span class="prompt">'SSID "%s" on channel %d'</span>,
-            wifi_info.ssid, wifi_info.channel
-        )
+    <span class="comment">// Configure device with WPA3 SSID</span>
+    <span class="cmd">public</span> String configureDevice(String serial) <span class="cmd">throws</span> Exception {
+        JsonObject config = <span class="cmd">new</span> JsonObject();
+        JsonObject unit = <span class="cmd">new</span> JsonObject();
+        unit.addProperty(<span class="prompt">"name"</span>, <span class="prompt">"Office-AP-01"</span>);
+        config.add(<span class="prompt">"unit"</span>, unit);
 
-        <span class="comment"># 验证客户端可连接</span>
-        client = <span class="cmd">self</span>.connect_client(
-            <span class="cmd">ssid</span>=<span class="prompt">"Enterprise-WPA3"</span>,
-            <span class="cmd">username</span>=<span class="prompt">"testuser"</span>,
-            <span class="cmd">password</span>=<span class="prompt">"TestPass123"</span>
-        )
-        <span class="cmd">assert</span> client.is_connected
+        JsonObject ssid = <span class="cmd">new</span> JsonObject();
+        ssid.addProperty(<span class="prompt">"name"</span>, <span class="prompt">"Enterprise-WPA3"</span>);
+        JsonArray bands = <span class="cmd">new</span> JsonArray();
+        bands.add(<span class="prompt">"5G"</span>); bands.add(<span class="prompt">"2G"</span>);
+        ssid.add(<span class="prompt">"wifi-bands"</span>, bands);
+        ssid.addProperty(<span class="prompt">"bss-mode"</span>, <span class="prompt">"ap"</span>);
 
-        <span class="comment"># 验证吞吐量</span>
-        result = <span class="cmd">self</span>.iperf_test(
-            <span class="cmd">server</span>=<span class="prompt">"192.168.1.100"</span>,
-            <span class="cmd">duration</span>=<span class="prompt">30</span>
-        )
-        <span class="cmd">assert</span> result.throughput_mbps > <span class="prompt">500</span>
+        JsonObject enc = <span class="cmd">new</span> JsonObject();
+        enc.addProperty(<span class="prompt">"proto"</span>, <span class="prompt">"wpa3"</span>);
+        enc.addProperty(<span class="prompt">"ieee80211w"</span>, <span class="prompt">"required"</span>);
+        ssid.add(<span class="prompt">"encryption"</span>, enc);
 
-<span class="cmd">if</span> __name__ == <span class="prompt">'__main__'</span>:
-    test_runner.main()
+        JsonArray ssids = <span class="cmd">new</span> JsonArray();
+        ssids.add(ssid);
+        JsonObject iface = <span class="cmd">new</span> JsonObject();
+        iface.add(<span class="prompt">"ssids"</span>, ssids);
+        JsonArray interfaces = <span class="cmd">new</span> JsonArray();
+        interfaces.add(iface);
+        config.add(<span class="prompt">"interfaces"</span>, interfaces);
 
-<span class="comment"># 运行:</span>
-<span class="comment"># python ap_test.py -c testbed_config.yaml</span></div>
+        JsonObject body = <span class="cmd">new</span> JsonObject();
+        body.add(<span class="prompt">"configuration"</span>, config);
+
+        HttpRequest req = HttpRequest.newBuilder()
+            .uri(URI.create(baseUrl + <span class="prompt">"/api/v1/device/"</span> + serial + <span class="prompt">"/configure"</span>))
+            .header(<span class="prompt">"Authorization"</span>, <span class="prompt">"Bearer "</span> + token)
+            .header(<span class="prompt">"Content-Type"</span>, <span class="prompt">"application/json"</span>)
+            .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
+            .build();
+        <span class="cmd">return</span> client.send(req, HttpResponse.BodyHandlers.ofString()).body();
+    }
+
+    <span class="cmd">public static void</span> main(String[] args) <span class="cmd">throws</span> Exception {
+        OpenWiFiManager mgr = <span class="cmd">new</span> OpenWiFiManager();
+        System.out.println(mgr.getDevices());
+        System.out.println(mgr.configureDevice(<span class="prompt">"AABBCCDDEEFF"</span>));
+    }
+}</div>
+        </div>
+
+        <p><strong>Maven:</strong> <code>com.google.code.gson:gson:2.10.1</code> (JSON) + JDK 11+ <code>java.net.http</code></p></div>
         </div>
 
         <h3>13.5 案例五：WDS 无线回程配置</h3>
@@ -1524,8 +1543,8 @@ cd openwrt
 make -j$(nproc) V=s
 cd ../..
 
-<span class="comment"># === 3. Python Test Framework ===</span>
-pip install mobly-wifi
+<span class="comment"># === 3. Java Test Framework (Maven) ===</span>
+# Maven: gson dependency
 
 <span class="comment"># === 4. Schema Validation Tool ===</span>
 git clone https://github.com/Telecominfraproject/wlan-ucentral-schema

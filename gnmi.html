@@ -414,74 +414,74 @@ flowchart TB
     <!-- Dev -->
     <section id="dev" data-section>
       <div class="card reveal">
-        <div class="card-header"><div class="card-icon green">💻</div><h2>9. Python 开发实践</h2></div>
+        <div class="card-header"><div class="card-icon green">💻</div><h2>9. Java 开发实践 (gRPC Stub)</h2></div>
         <div class="terminal">
-          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">pygnmi — Python gNMI Client</span></div>
-          <div class="terminal-body"><span class="cmd">from</span> pygnmi <span class="cmd">import</span> gNMIclient
+          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">Java gNMI Client -- GnmiJavaClient.java</span></div>
+          <div class="terminal-body"><span class="comment">// gNMI Java client using generated gRPC stubs</span>
+<span class="cmd">import</span> io.grpc.ManagedChannel;
+<span class="cmd">import</span> io.grpc.ManagedChannelBuilder;
+<span class="cmd">import</span> gnmi.Gnmi.*;
+<span class="cmd">import</span> gnmi.gNMIStub;
 
-<span class="comment"># Connect to device</span>
-<span class="cmd">with</span> gNMIclient(
-    target=(<span class="prompt">'192.168.1.1'</span>, <span class="prompt">57400</span>),
-    username=<span class="prompt">'admin'</span>,
-    password=<span class="prompt">'admin123'</span>,
-    insecure=<span class="cmd">True</span>
-) <span class="cmd">as</span> gc:
-    <span class="comment"># Capabilities</span>
-    caps = gc.capabilities()
-    <span class="cmd">print</span>(<span class="prompt">f"Models: {[m['name'] for m in caps['supported_models']]}"</span>)
+<span class="cmd">public class</span> <span class="prompt">GnmiJavaClient</span> {
+    <span class="cmd">public static void</span> main(String[] args) {
+        <span class="comment">// 1. Create gRPC channel</span>
+        ManagedChannel channel = ManagedChannelBuilder
+            .forAddress(<span class="prompt">"192.168.1.1"</span>, <span class="prompt">57400</span>)
+            .usePlaintext().build();
+        gNMIStub stub = gNMIStub.newBlockingStub(channel);
 
-    <span class="comment"># Get - interface state</span>
-    result = gc.get(
-        path=[<span class="prompt">'/interfaces/interface[name=Ethernet1]/state'</span>],
-        encoding=<span class="prompt">'json_ietf'</span>
-    )
+        <span class="comment">// 2. Capabilities</span>
+        CapabilityResponse caps = stub.capabilities(
+            CapabilityRequest.newBuilder().build());
+        caps.getSupportedModelsList().forEach(m ->
+            System.out.println(<span class="prompt">"Model: "</span> + m.getName()));
 
-    <span class="comment"># Set - update interface</span>
-    gc.set(
-        update=[
-            (<span class="prompt">'/interfaces/interface[name=Ethernet1]/config/description'</span>,
-             <span class="prompt">'Uplink-to-Core'</span>)
-        ]
-    )
+        <span class="comment">// 3. Get -- interface state snapshot</span>
+        GetResponse getResp = stub.get(GetRequest.newBuilder()
+            .setType(GetRequest.DataType.STATE)
+            .addPath(Path.newBuilder()
+                .addElem(PathElem.newBuilder()
+                    .setName(<span class="prompt">"interfaces"</span>).build()).build())
+            .setEncoding(Encoding.JSON_IETF)
+            .build());
+        System.out.println(getResp);
 
-    <span class="comment"># Subscribe - streaming telemetry</span>
-    subscription = gc.subscribe(
-        subscribe={
-            <span class="prompt">'interfaces'</span>: {
-                <span class="prompt">'path'</span>: <span class="prompt">'/interfaces/interface/state/counters'</span>,
-                <span class="prompt">'mode'</span>: <span class="prompt">'stream'</span>,
-                <span class="prompt">'stream_mode'</span>: <span class="prompt">'sample'</span>,
-                <span class="prompt">'sample_interval'</span>: <span class="prompt">10000000000</span>  <span class="comment"># 10s in ns</span>
-            }
+        <span class="comment">// 4. Set -- update interface description</span>
+        SetResponse setResp = stub.set(SetRequest.newBuilder()
+            .addUpdate(Update.newBuilder()
+                .setPath(Path.newBuilder()
+                    .addElem(PathElem.newBuilder()
+                        .setName(<span class="prompt">"interfaces"</span>).build())
+                    .build())
+                .setVal(TypedValue.newBuilder()
+                    .setStringVal(<span class="prompt">"Uplink-to-Core"</span>).build())
+                .build())
+            .build());
+
+        <span class="comment">// 5. Subscribe -- streaming telemetry</span>
+        java.util.Iterator&lt;SubscribeResponse&gt; stream = stub.subscribe(
+            SubscribeRequest.newBuilder()
+                .setSubscribe(SubscriptionList.newBuilder()
+                    .addSubscription(Subscription.newBuilder()
+                        .setPath(Path.newBuilder()
+                            .addElem(PathElem.newBuilder()
+                                .setName(<span class="prompt">"interfaces"</span>).build()).build())
+                        .setMode(SubscriptionMode.STREAM)
+                        .setStreamMode(StreamMode.SAMPLE)
+                        .setSampleInterval(<span class="prompt">10000000000L</span>)
+                        .build())
+                    .build())
+                .build());
+        <span class="cmd">while</span> (stream.hasNext()) {
+            System.out.println(<span class="prompt">"Telemetry: "</span> + stream.next());
         }
-    )
-    <span class="cmd">for</span> response <span class="cmd">in</span> subscription:
-        <span class="cmd">print</span>(response)</div>
+        channel.shutdown();
+    }
+}</div>
         </div>
 
-        <h3>9.1 一键环境搭建</h3>
-        <div class="terminal">
-          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">Quick Start</span></div>
-          <div class="terminal-body"><span class="comment"># Launch gNMI target simulator</span>
-docker run -d --name gnmi-target -p 57400:57400 \
-  ghcr.io/openconfig/gnmi-target:latest
-
-<span class="comment"># Install gnmic CLI</span>
-curl -sL https://github.com/openconfig/gnmic/releases/download/v0.37.0/gnmic_0.37.0_linux_amd64.tar.gz | tar xz
-
-<span class="comment"># Discover capabilities</span>
-./gnmic -a localhost:57400 --insecure capabilities
-
-<span class="comment"># Stream subscribe</span>
-./gnmic -a localhost:57400 --insecure subscribe \
-  --path "/interfaces/interface/state/counters" \
-  --mode stream --stream-mode sample --sample-interval 5s
-
-<span class="comment"># Install Python SDK</span>
-pip install pygnmi</div>
-        </div>
-      </div>
-    </section>
+        <p><strong>&#x2705; Proto编译:</strong> 克隆 <code>github.com/openconfig/gnmi</code>，使用 <code>protoc + grpc-java</code> 插件生成 Java Stub。</p>
 
     <footer class="site-footer reveal">
       <span>© 2026 SDN Research · Built with ❤️</span>

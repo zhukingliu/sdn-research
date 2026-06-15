@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SNMP 调研 | SDN Research</title>
-<meta name="description" content="SNMP 网络管理协议深度调研 — 三版本对比、MIB/OID、SNMPv3安全、Python开发">
+<meta name="description" content="SNMP 网络管理协议深度调研 — 三版本对比、MIB/OID、SNMPv3安全、Java SNMP4J">
 <link rel="stylesheet" href="assets/css/style.css">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
@@ -51,7 +51,7 @@
         <a href="#versions" class="nav-link"><span class="nav-dot"></span>三版本对比</a>
         <a href="#snmpv3" class="nav-link"><span class="nav-dot"></span>SNMPv3 安全架构</a>
         <a href="#comparison" class="nav-link"><span class="nav-dot"></span>协议对比</a>
-        <a href="#dev" class="nav-link"><span class="nav-dot"></span>Python 开发实践</a>
+        <a href="#dev" class="nav-link"><span class="nav-dot"></span>Java 开发实践</a>
       </div>
     </nav>
     <div class="sidebar-footer"><span>🟢 RFC 1157-3418 · 2026.06</span></div>
@@ -333,77 +333,125 @@ snmpget -v3 -u monitor_user -l authPriv \
     <!-- Dev -->
     <section id="dev" data-section>
       <div class="card reveal">
-        <div class="card-header"><div class="card-icon green">💻</div><h2>7. Python netsnmp 开发实践</h2></div>
+        <div class="card-header"><div class="card-icon green">💻</div><h2>7. Java SNMP4J 开发实践</h2></div>
         <div class="terminal">
-          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">Python netsnmp — GET / Walk / Bulk</span></div>
-          <div class="terminal-body"><span class="cmd">import</span> netsnmp
+          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">SNMP4J -- GET / Walk / GETBULK</span></div>
+          <div class="terminal-body"><span class="comment">// Maven: org.snmp4j:snmp4j:3.7.0</span>
+<span class="cmd">import</span> org.snmp4j.*;
+<span class="cmd">import</span> org.snmp4j.smi.*;
+<span class="cmd">import</span> org.snmp4j.transport.DefaultUdpTransportMapping;
+<span class="cmd">import</span> org.snmp4j.mp.*;
 
-<span class="comment"># Session setup (SNMPv2c)</span>
-session = netsnmp.Session(
-    Version=<span class="prompt">2</span>,
-    DestHost=<span class="prompt">'192.168.1.1'</span>,
-    Community=<span class="prompt">'public'</span>
-)
+<span class="cmd">public class</span> <span class="prompt">SnmpManager</span> {
+    <span class="cmd">private</span> Snmp snmp;
+    <span class="cmd">private</span> Target&lt;?&gt; target;
 
-<span class="comment"># GET - single OID</span>
-oid = netsnmp.Varbind(<span class="prompt">'sysUpTime'</span>, <span class="prompt">'0'</span>)
-result = session.get(netsnmp.VarList(oid))
-print(<span class="prompt">f'Uptime: {result[0]}'</span>)
+    <span class="comment">// Init SNMPv2c session</span>
+    <span class="cmd">public void</span> initV2c(String host, String community) <span class="cmd">throws</span> Exception {
+        snmp = <span class="cmd">new</span> Snmp(<span class="cmd">new</span> DefaultUdpTransportMapping());
+        snmp.listen();
+        CommunityTarget ct = <span class="cmd">new</span> CommunityTarget();
+        ct.setCommunity(<span class="cmd">new</span> OctetString(community));
+        ct.setAddress(GenericAddress.parse(<span class="prompt">"udp:"</span> + host + <span class="prompt">"/161"</span>));
+        ct.setVersion(SnmpConstants.version2c);
+        ct.setRetries(<span class="prompt">2</span>);
+        ct.setTimeout(<span class="prompt">3000</span>);
+        <span class="cmd">this</span>.target = ct;
+    }
 
-<span class="comment"># MIB Walk (GETNEXT loop)</span>
-<span class="cmd">def</span> snmp_walk(session, base_oid=<span class="prompt">'.1.3.6.1.2.1.2.2.1'</span>):
-    oid = netsnmp.Varbind(base_oid)
-    results = {}
-    <span class="cmd">while True</span>:
-        result = session.getnext(netsnmp.VarList(oid))
-        <span class="cmd">if not</span> result <span class="cmd">or not</span> result[<span class="prompt">0</span>]:
-            <span class="cmd">break</span>
-        tag, val = result[<span class="prompt">0</span>]
-        <span class="cmd">if not</span> tag.startswith(base_oid):
-            <span class="cmd">break</span>
-        results[tag] = val
-        oid = netsnmp.Varbind(tag)
-    <span class="cmd">return</span> results
+    <span class="comment">// SNMP GET</span>
+    <span class="cmd">public</span> String get(String oid) <span class="cmd">throws</span> Exception {
+        PDU pdu = <span class="cmd">new</span> PDU();
+        pdu.add(<span class="cmd">new</span> VariableBinding(<span class="cmd">new</span> OID(oid)));
+        pdu.setType(PDU.GET);
+        ResponseEvent resp = snmp.send(pdu, target);
+        <span class="cmd">if</span> (resp.getResponse() != <span class="cmd">null</span>)
+            <span class="cmd">return</span> resp.getResponse().get(<span class="prompt">0</span>).getVariable().toString();
+        <span class="cmd">return null</span>;
+    }
 
-<span class="comment"># GETBULK - batch retrieval</span>
-oids = netsnmp.VarList(
-    netsnmp.Varbind(<span class="prompt">'ifInOctets'</span>, <span class="prompt">'1'</span>),
-    netsnmp.Varbind(<span class="prompt">'ifOutOctets'</span>, <span class="prompt">'1'</span>),
-    netsnmp.Varbind(<span class="prompt">'ifOperStatus'</span>, <span class="prompt">'1'</span>),
-)
-result = session.getbulk(<span class="prompt">0</span>, <span class="prompt">10</span>, oids)</div>
+    <span class="comment">// SNMP WALK (GETNEXT loop)</span>
+    <span class="cmd">public</span> java.util.Map&lt;String,String&gt; walk(String baseOid) <span class="cmd">throws</span> Exception {
+        java.util.Map&lt;String,String&gt; results = <span class="cmd">new</span> java.util.LinkedHashMap&lt;&gt;();
+        OID currentOid = <span class="cmd">new</span> OID(baseOid);
+        <span class="cmd">while</span> (<span class="cmd">true</span>) {
+            PDU pdu = <span class="cmd">new</span> PDU();
+            pdu.add(<span class="cmd">new</span> VariableBinding(currentOid));
+            pdu.setType(PDU.GETNEXT);
+            ResponseEvent ev = snmp.send(pdu, target);
+            <span class="cmd">if</span> (ev == <span class="cmd">null</span> || ev.getResponse() == <span class="cmd">null</span>) <span class="cmd">break</span>;
+            VariableBinding vb = ev.getResponse().get(<span class="prompt">0</span>);
+            String next = vb.getOid().toDottedString();
+            <span class="cmd">if</span> (!next.startsWith(baseOid)) <span class="cmd">break</span>;
+            results.put(next, vb.getVariable().toString());
+            currentOid = vb.getOid();
+        }
+        <span class="cmd">return</span> results;
+    }
+
+    <span class="comment">// GETBULK for batch retrieval</span>
+    <span class="cmd">public void</span> getBulk(String oid) <span class="cmd">throws</span> Exception {
+        PDU pdu = <span class="cmd">new</span> PDU();
+        pdu.add(<span class="cmd">new</span> VariableBinding(<span class="cmd">new</span> OID(oid)));
+        pdu.setType(PDU.GETBULK);
+        pdu.setMaxRepetitions(<span class="prompt">10</span>);
+        pdu.setNonRepeaters(<span class="prompt">0</span>);
+        ResponseEvent resp = snmp.send(pdu, target);
+        resp.getResponse().getVariableBindings().forEach(System.out::println);
+    }
+
+    <span class="cmd">public void</span> close() <span class="cmd">throws</span> Exception { snmp.close(); }
+
+    <span class="cmd">public static void</span> main(String[] args) <span class="cmd">throws</span> Exception {
+        SnmpManager m = <span class="cmd">new</span> SnmpManager();
+        m.initV2c(<span class="prompt">"192.168.1.1"</span>, <span class="prompt">"public"</span>);
+
+        System.out.println(<span class="prompt">"Uptime: "</span> + m.get(<span class="prompt">".1.3.6.1.2.1.1.3.0"</span>));
+
+        m.walk(<span class="prompt">".1.3.6.1.2.1.2.2.1"</span>).forEach(
+            (oid, val) -> System.out.println(oid + <span class="prompt">" = "</span> + val));
+
+        m.close();
+    }
+}</div>
         </div>
 
-        <h3>7.1 SNMPv3 安全连接</h3>
+        <h3>7.1 SNMPv3 安全连接 (authPriv)</h3>
         <div class="terminal">
           <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">SNMPv3 Session with authPriv</span></div>
-          <div class="terminal-body">session = netsnmp.Session(
-    Version=<span class="prompt">3</span>,
-    DestHost=<span class="prompt">'192.168.1.1'</span>,
-    SecName=<span class="prompt">'monitor_user'</span>,
-    SecLevel=<span class="prompt">'authPriv'</span>,        <span class="comment"># auth + encrypt</span>
-    AuthProto=<span class="prompt">'SHA'</span>,
-    AuthPass=<span class="prompt">'AuthPass123'</span>,
-    PrivProto=<span class="prompt">'AES'</span>,
-    PrivPass=<span class="prompt">'EncryptPass123'</span>
-)
-result = session.get(
-    netsnmp.VarList(netsnmp.Varbind(<span class="prompt">'sysUpTime'</span>, <span class="prompt">'0'</span>))
-)</div>
-        </div>
+          <div class="terminal-body"><span class="comment">// SNMPv3 authPriv: SHA auth + AES128 encrypt</span>
+SecurityProtocols.getInstance()
+    .addAuthenticationProtocol(<span class="cmd">new</span> AuthSHA())
+    .addPrivacyProtocol(<span class="cmd">new</span> PrivAES128());
 
-        <h3>7.2 2026 年协议分工总结</h3>
-        <div class="table-wrap"><table>
-          <thead><tr><th>场景</th><th>推荐协议</th></tr></thead>
-          <tbody>
-            <tr><td>遗留设备 / 基础监控</td><td><strong>SNMP</strong> (95%+ 兼容)</td></tr>
-            <tr><td>AI 训练网络流式遥测</td><td><strong>gNMI</strong> (亚秒级推送)</td></tr>
-            <tr><td>核心网事务性配置</td><td><strong>NETCONF</strong> (ACID 事务)</td></tr>
-            <tr><td>混合环境</td><td><strong>SNMP + gNMI</strong> 双模代理</td></tr>
-          </tbody>
-        </table></div>
-      </div>
-    </section>
+OctetString localEngineID = <span class="cmd">new</span> OctetString(MPv3.createLocalEngineID());
+USM usm = <span class="cmd">new</span> USM(SecurityProtocols.getInstance(), localEngineID, <span class="prompt">0</span>);
+UsmUser user = <span class="cmd">new</span> UsmUser(
+    <span class="cmd">new</span> OctetString(<span class="prompt">"monitor_user"</span>),
+    AuthHMAC192SHA256.ID,
+    <span class="cmd">new</span> OctetString(<span class="prompt">"AuthPass123"</span>),
+    PrivAES128.ID,
+    <span class="cmd">new</span> OctetString(<span class="prompt">"EncryptPass123"</span>)
+);
+usm.addUser(user.getSecurityName(), user);
+
+UserTarget target = <span class="cmd">new</span> UserTarget();
+target.setAddress(GenericAddress.parse(<span class="prompt">"udp:192.168.1.1/161"</span>));
+target.setVersion(SnmpConstants.version3);
+target.setSecurityLevel(SecurityLevel.AUTH_PRIV);
+target.setSecurityName(<span class="cmd">new</span> OctetString(<span class="prompt">"monitor_user"</span>));
+
+<span class="comment">// Must discover engine ID first</span>
+<span class="cmd">byte</span>[] engineID = snmp.discoverAuthoritativeEngineID(
+    target.getAddress(), <span class="prompt">3000</span>);
+target.setAuthoritativeEngineID(engineID);
+
+PDU pdu = <span class="cmd">new</span> PDU();
+pdu.add(<span class="cmd">new</span> VariableBinding(
+    <span class="cmd">new</span> OID(<span class="prompt">".1.3.6.1.2.1.1.3.0"</span>)));
+pdu.setType(PDU.GET);
+ResponseEvent resp = snmp.send(pdu, target);</div>
+        </div>
 
     <footer class="site-footer reveal">
       <span>© 2026 SDN Research · Built with ❤️</span>

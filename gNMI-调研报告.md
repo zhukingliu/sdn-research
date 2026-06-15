@@ -440,7 +440,7 @@ with gNMIclient(
 | OpenConfig YANG Models | https://github.com/openconfig/public |
 | gnmic 工具 | https://github.com/openconfig/gnmic |
 | ygnmi Go SDK | https://github.com/openconfig/ygnmi |
-| pygnmi Python SDK | https://github.com/nokia/pygnmi |
+| gRPC Java Stub | https://github.com/nokia/pygnmi |
 | Google gnxi 参考实现 | https://github.com/google/gnxi |
 | SONiC gNMI | https://github.com/sonic-net/sonic-gnmi |
 | IETF 网络管理协议对比 | https://datatracker.ietf.org/doc/draft-zeng-opsawg-llm-netconf-gap-00/ |

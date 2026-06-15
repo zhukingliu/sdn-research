@@ -52,7 +52,7 @@
         <a href="#nmda" class="nav-link"><span class="nav-dot"></span>NMDA 扩展</a>
         <a href="#comparison" class="nav-link"><span class="nav-dot"></span>协议对比</a>
         <a href="#sdn" class="nav-link"><span class="nav-dot"></span>SDN 控制器集成</a>
-        <a href="#dev" class="nav-link"><span class="nav-dot"></span>Python 开发实践</a>
+        <a href="#dev" class="nav-link"><span class="nav-dot"></span>Java 开发实践</a>
       </div>
     </nav>
     <div class="sidebar-footer"><span>🟢 RFC 6241 · 2026.06</span></div>
@@ -436,80 +436,93 @@ flowchart TB
     <!-- Dev -->
     <section id="dev" data-section>
       <div class="card reveal">
-        <div class="card-header"><div class="card-icon green">💻</div><h2>9. Python ncclient 开发实践</h2></div>
+        <div class="card-header"><div class="card-icon green">💻</div><h2>9. Java NETCONF 开发实践 (Apache SSHD)</h2></div>
         <div class="terminal">
-          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">ncclient — Full Transaction Workflow</span></div>
-          <div class="terminal-body"><span class="cmd">from</span> ncclient <span class="cmd">import</span> manager
+          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">Java NETCONF Client -- NetconfClient.java</span></div>
+          <div class="terminal-body"><span class="comment">// Java NETCONF client via SSH subsystem</span>
+<span class="cmd">import</span> org.apache.sshd.client.SshClient;
+<span class="cmd">import</span> org.apache.sshd.client.session.ClientSession;
+<span class="cmd">import</span> org.apache.sshd.client.channel.ClientChannel;
+<span class="cmd">import</span> java.io.*;
 
-<span class="comment"># Connect to NETCONF device</span>
-<span class="cmd">with</span> manager.connect(
-    host=<span class="prompt">'192.168.1.1'</span>,
-    port=<span class="prompt">830</span>,
-    username=<span class="prompt">'admin'</span>,
-    password=<span class="prompt">'admin123'</span>,
-    hostkey_verify=<span class="cmd">False</span>,
-    device_params={<span class="prompt">'name'</span>: <span class="prompt">'csr'</span>}
-) <span class="cmd">as</span> m:
-    <span class="comment"># Get config</span>
-    reply = m.get_config(source=<span class="prompt">'running'</span>,
-        filter=(<span class="prompt">'subtree'</span>, <span class="prompt">'...filter...'</span>))
+<span class="cmd">public class</span> <span class="prompt">NetconfClient</span> {
+    <span class="cmd">private</span> ClientSession session;
+    <span class="cmd">private</span> PrintWriter out;
+    <span class="cmd">private</span> BufferedReader in;
+    <span class="cmd">private static final</span> String END = <span class="prompt">"]]>]]>"</span>;
 
-    <span class="comment"># Transactional edit</span>
-    config = <span class="prompt">'&lt;config&gt;...&lt;/config&gt;'</span>
-    m.lock(target=<span class="prompt">'candidate'</span>)
-    m.edit_config(target=<span class="prompt">'candidate'</span>, config=config)
-    m.validate(source=<span class="prompt">'candidate'</span>)       <span class="comment"># dry-run</span>
-    m.commit()                              <span class="comment"># atomic apply</span>
-    m.unlock(target=<span class="prompt">'candidate'</span>)
+    <span class="cmd">public void</span> connect(String host, String user, String pass) <span class="cmd">throws</span> Exception {
+        SshClient client = SshClient.setUpDefaultClient();
+        client.start();
+        session = client.connect(user, host, <span class="prompt">830</span>).verify(<span class="prompt">5000</span>).getSession();
+        session.addPasswordIdentity(pass);
+        session.auth().verify(<span class="prompt">5000</span>);
+        ClientChannel ch = session.createSubsystemChannel(<span class="prompt">"netconf"</span>);
+        ch.open().verify(<span class="prompt">5000</span>);
+        out = <span class="cmd">new</span> PrintWriter(ch.getInvertedIn(), <span class="cmd">true</span>);
+        in = <span class="cmd">new</span> BufferedReader(<span class="cmd">new</span> InputStreamReader(ch.getInvertedOut()));
+        readUntil(); <span class="comment">// server hello</span>
+        send(<span class="prompt">"&lt;hello xmlns='urn:ietf:params:xml:ns:netconf:base:1.0'&gt;"</span> +
+             <span class="prompt">"&lt;capabilities&gt;&lt;capability&gt;"</span> +
+             <span class="prompt">"urn:ietf:params:netconf:base:1.0"</span> +
+             <span class="prompt">"&lt;/capability&gt;&lt;/capabilities&gt;&lt;/hello&gt;"</span>);
+    }
 
-    <span class="comment"># Confirmed commit with 5-min safety net</span>
-    m.lock(target=<span class="prompt">'candidate'</span>)
-    m.edit_config(target=<span class="prompt">'candidate'</span>, config=config)
-    m.commit(confirmed=<span class="cmd">True</span>, timeout=<span class="prompt">'300'</span>)
-    <span class="comment"># ... verify connectivity ...</span>
-    m.commit()                              <span class="comment"># confirm or auto-rollback</span>
-    m.unlock(target=<span class="prompt">'candidate'</span>)</div>
+    <span class="cmd">void</span> send(String xml) { out.print(xml + END); out.flush(); }
+
+    <span class="cmd">String</span> readUntil() <span class="cmd">throws</span> Exception {
+        StringBuilder sb = <span class="cmd">new</span> StringBuilder();
+        String line;
+        <span class="cmd">while</span> ((line = in.readLine()) != <span class="cmd">null</span>) {
+            sb.append(line).append(<span class="prompt">"\n"</span>);
+            <span class="cmd">if</span> (line.contains(<span class="prompt">"]]>"</span>)) <span class="cmd">break</span>;
+        }
+        <span class="cmd">return</span> sb.toString();
+    }
+
+    <span class="cmd">public</span> String getConfig(String source) <span class="cmd">throws</span> Exception {
+        send(<span class="prompt">"&lt;rpc message-id='101' xmlns='urn:ietf:params:xml:ns:netconf:base:1.0'&gt;"</span> +
+             <span class="prompt">"&lt;get-config&gt;&lt;source&gt;&lt;"</span> + source + <span class="prompt">"/&gt;&lt;/source&gt;&lt;/get-config&gt;&lt;/rpc&gt;"</span>);
+        <span class="cmd">return</span> readUntil();
+    }
+
+    <span class="comment">// Transactional config change: lock -> edit -> commit -> unlock</span>
+    <span class="cmd">public void</span> transactionalEdit(String configXml) <span class="cmd">throws</span> Exception {
+        send(<span class="prompt">"&lt;rpc&gt;&lt;lock&gt;&lt;target&gt;&lt;candidate/&gt;&lt;/target&gt;&lt;/lock&gt;&lt;/rpc&gt;"</span>);
+        readUntil();
+
+        send(<span class="prompt">"&lt;rpc&gt;&lt;edit-config&gt;&lt;target&gt;&lt;candidate/&gt;&lt;/target&gt;"</span> +
+             <span class="prompt">"&lt;config&gt;"</span> + configXml + <span class="prompt">"&lt;/config&gt;&lt;/edit-config&gt;&lt;/rpc&gt;"</span>);
+        readUntil();
+
+        send(<span class="prompt">"&lt;rpc&gt;&lt;commit/&gt;&lt;/rpc&gt;"</span>);
+        readUntil();
+
+        send(<span class="prompt">"&lt;rpc&gt;&lt;unlock&gt;&lt;target&gt;&lt;candidate/&gt;&lt;/target&gt;&lt;/unlock&gt;&lt;/rpc&gt;"</span>);
+        readUntil();
+    }
+
+    <span class="cmd">public void</span> close() <span class="cmd">throws</span> Exception {
+        send(<span class="prompt">"&lt;rpc&gt;&lt;close-session/&gt;&lt;/rpc&gt;"</span>);
+        session.close();
+    }
+
+    <span class="cmd">public static void</span> main(String[] args) <span class="cmd">throws</span> Exception {
+        NetconfClient c = <span class="cmd">new</span> NetconfClient();
+        c.connect(<span class="prompt">"192.168.1.1"</span>, <span class="prompt">"admin"</span>, <span class="prompt">"admin123"</span>);
+
+        String config = <span class="prompt">"&lt;interfaces xmlns='urn:ietf:params:xml:ns:yang:ietf-interfaces'&gt;"</span> +
+                       <span class="prompt">"&lt;interface&gt;&lt;name&gt;Eth1&lt;/name&gt;"</span> +
+                       <span class="prompt">"&lt;description&gt;Uplink&lt;/description&gt;&lt;/interface&gt;&lt;/interfaces&gt;"</span>;
+        c.transactionalEdit(config);
+
+        System.out.println(c.getConfig(<span class="prompt">"running"</span>));
+        c.close();
+    }
+}</div>
         </div>
 
-        <h3>9.1 Containerlab 快速搭建</h3>
-        <div class="terminal">
-          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">Containerlab — NETCONF Lab</span></div>
-          <div class="terminal-body"><span class="comment"># netconf-lab.yml</span>
-name: netconf-lab
-topology:
-  nodes:
-    router1:
-      kind: nokia_srlinux
-      image: ghcr.io/nokia/srlinux
-
-<span class="comment"># Deploy</span>
-sudo containerlab deploy -t netconf-lab.yml
-
-<span class="comment"># Verify NETCONF</span>
-ssh -p 830 admin@router1 -s netconf
-<span class="comment"># Send hello:</span>
-<span class="comment"># &lt;?xml version="1.0"?&gt;</span>
-<span class="comment"># &lt;hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"&gt;</span>
-<span class="comment">#   &lt;capabilities&gt;</span>
-<span class="comment">#     &lt;capability&gt;urn:ietf:params:netconf:base:1.0&lt;/capability&gt;</span>
-<span class="comment">#   &lt;/capabilities&gt;</span>
-<span class="comment"># &lt;/hello&gt;</span>
-<span class="comment"># ]]>]]></span></div>
-        </div>
-
-        <h3>9.2 2025 最新进展: LLM-IBN 差距分析</h3>
-        <p>IETF 于 2025 年 11 月发布了草案 <strong>draft-zeng-opsawg-llm-netconf-gap-00</strong>，系统分析了 NETCONF 在 LLM 驱动的意图网络中的局限性：</p>
-        <div class="table-wrap"><table>
-          <thead><tr><th>差距领域</th><th>描述</th></tr></thead>
-          <tbody>
-            <tr><td><strong>语义发现缺失</strong></td><td>YANG 模型无法在运行时自描述，LLM 无法动态理解模型语义</td></tr>
-            <tr><td><strong>多设备关联上下文</strong></td><td>NETCONF 会话间不共享意图 ID 或跨设备关联信息</td></tr>
-            <tr><td><strong>高频 KPI 遥测</strong></td><td>Notification 机制吞吐量有限，不适用于亚秒级 KPI</td></tr>
-            <tr><td><strong>细粒度 RBAC</strong></td><td>commit 是原子操作，无法按 leaf 级别进行访问控制</td></tr>
-          </tbody>
-        </table></div>
-      </div>
-    </section>
+        <p><strong>Maven:</strong> <code>org.apache.sshd:sshd-core:2.12.0</code> (SSH) + JDK built-in <code>javax.xml</code></p>
 
     <footer class="site-footer reveal">
       <span>© 2026 SDN Research · Built with ❤️</span>

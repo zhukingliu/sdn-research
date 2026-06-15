@@ -18,7 +18,7 @@
 7. [SNMPv3 安全架构详解](#7-snmpv3-安全架构详解)
 8. [核心操作 (PDU)](#8-核心操作-pdu)
 9. [与 gNMI / NETCONF 对比](#9-与-gnmi--netconf-对比)
-10. [开发实践: Python netsnmp](#10-开发实践-python-netsnmp)
+10. [开发实践: Java SNMP4J](#10-开发实践-java-snmp4j)
 11. [2025-2026 趋势与生态](#11-2025-2026-趋势与生态)
 12. [总结与展望](#12-总结与展望)
 13. [参考资源](#13-参考资源)
@@ -334,83 +334,167 @@ snmpget -v3 -u monitor_user -l authPriv -a SHA -A AuthPass123 \
 
 ---
 
-## 10. 开发实践: Python netsnmp
+## 10. 开发实践: Java SNMP4J
 
-### 10.1 安装
+### 10.1 Maven 依赖
 
-```bash
-# 系统依赖
-sudo apt install snmpd snmp libsnmp-dev
-
-# Python 库
-pip install netsnmp pyasn1
+```xml
+<!-- pom.xml -->
+<dependency>
+    <groupId>org.snmp4j</groupId>
+    <artifactId>snmp4j</artifactId>
+    <version>3.7.0</version>
+</dependency>
 ```
 
-### 10.2 GET 操作
+### 10.2 GET 操作 (SNMPv2c)
 
-```python
-import netsnmp
+```java
+import org.snmp4j.*;
+import org.snmp4j.smi.*;
+import org.snmp4j.transport.DefaultUdpTransportMapping;
 
-session = netsnmp.Session(
-    Version=2,
-    DestHost='192.168.1.1',
-    Community='public'
-)
+public class SnmpGetExample {
+    public static void main(String[] args) throws Exception {
+        // 创建 SNMP 会话
+        TransportMapping<? extends Address> transport = new DefaultUdpTransportMapping();
+        Snmp snmp = new Snmp(transport);
+        transport.listen();
 
-oid = netsnmp.Varbind('sysUpTime', '0')
-result = session.get(netsnmp.VarList(oid))
-print(f'Uptime: {result[0]}')
+        // 构建目标 (SNMPv2c)
+        CommunityTarget target = new CommunityTarget();
+        target.setCommunity(new OctetString("public"));
+        target.setAddress(GenericAddress.parse("udp:192.168.1.1/161"));
+        target.setVersion(SnmpConstants.version2c);
+        target.setRetries(2);
+        target.setTimeout(3000);
+
+        // 构建 GET PDU
+        PDU pdu = new PDU();
+        pdu.add(new VariableBinding(new OID(".1.3.6.1.2.1.1.3.0")));  // sysUpTime
+        pdu.setType(PDU.GET);
+
+        // 发送请求
+        ResponseEvent response = snmp.send(pdu, target);
+        if (response.getResponse() != null) {
+            for (VariableBinding vb : response.getResponse().getVariableBindings()) {
+                System.out.println(vb.getOid() + " = " + vb.getVariable());
+            }
+        }
+        snmp.close();
+    }
+}
 ```
 
-### 10.3 MIB Walk (完整遍历)
+### 10.3 MIB Walk (GETNEXT 循环)
 
-```python
-def snmp_walk(session, base_oid='.1.3.6.1.2.1.2.2.1'):
-    """遍历 IF-MIB 接口表"""
-    oid = netsnmp.Varbind(base_oid)
-    results = {}
-    while True:
-        result = session.getnext(netsnmp.VarList(oid))
-        if not result or not result[0]:
-            break
-        tag, val = result[0]
-        if not tag.startswith(base_oid):
-            break
-        results[tag] = val
-        oid = netsnmp.Varbind(tag)
-    return results
+```java
+import java.util.*;
 
-iface_data = snmp_walk(session)
-for oid, val in iface_data.items():
-    print(f'{oid} = {val}')
+public class SnmpWalkExample {
+    public static Map<String, String> snmpWalk(Snmp snmp, Target<?> target, String baseOid) throws Exception {
+        Map<String, String> results = new LinkedHashMap<>();
+        OID currentOid = new OID(baseOid);
+
+        while (true) {
+            PDU pdu = new PDU();
+            pdu.add(new VariableBinding(currentOid));
+            pdu.setType(PDU.GETNEXT);
+
+            ResponseEvent event = snmp.send(pdu, target);
+            if (event == null || event.getResponse() == null) break;
+
+            VariableBinding vb = event.getResponse().get(0);
+            String nextOid = vb.getOid().toDottedString();
+
+            if (!nextOid.startsWith(baseOid)) break;   // 超出子树范围
+
+            results.put(nextOid, vb.getVariable().toString());
+            currentOid = vb.getOid();
+        }
+        return results;
+    }
+
+    public static void main(String[] args) throws Exception {
+        Snmp snmp = new Snmp(new DefaultUdpTransportMapping());
+        CommunityTarget target = new CommunityTarget();
+        target.setCommunity(new OctetString("public"));
+        target.setAddress(GenericAddress.parse("udp:192.168.1.1/161"));
+        target.setVersion(SnmpConstants.version2c);
+
+        Map<String, String> data = snmpWalk(snmp, target, ".1.3.6.1.2.1.2.2.1");
+        data.forEach((oid, val) -> System.out.println(oid + " = " + val));
+        snmp.close();
+    }
+}
 ```
 
 ### 10.4 GETBULK 批量查询
 
-```python
-# SNMPv2c/v3 GETBULK: 一次性获取多个 OID
-oids = netsnmp.VarList(
-    netsnmp.Varbind('ifInOctets', '1'),
-    netsnmp.Varbind('ifOutOctets', '1'),
-    netsnmp.Varbind('ifOperStatus', '1'),
-)
-result = session.getbulk(0, 10, oids)  # non-repeaters=0, max-repetitions=10
+```java
+PDU pdu = new PDU();
+pdu.add(new VariableBinding(new OID(".1.3.6.1.2.1.2.2.1.10")));  // ifInOctets
+pdu.add(new VariableBinding(new OID(".1.3.6.1.2.1.2.2.1.16")));  // ifOutOctets
+pdu.setType(PDU.GETBULK);
+pdu.setMaxRepetitions(10);   // 每次最多返回 10 行
+pdu.setNonRepeaters(0);
+
+ResponseEvent response = snmp.send(pdu, target);
+for (VariableBinding vb : response.getResponse().getVariableBindings()) {
+    System.out.println(vb.getOid() + " = " + vb.getVariable());
+}
 ```
 
-### 10.5 SNMPv3 安全连接
+### 10.5 SNMPv3 安全连接 (authPriv)
 
-```python
-session = netsnmp.Session(
-    Version=3,
-    DestHost='192.168.1.1',
-    SecName='monitor_user',
-    SecLevel='authPriv',        # 认证 + 加密
-    AuthProto='SHA',
-    AuthPass='AuthPass123',
-    PrivProto='AES',
-    PrivPass='EncryptPass123'
-)
-result = session.get(netsnmp.VarList(netsnmp.Varbind('sysUpTime', '0')))
+```java
+import org.snmp4j.mp.SnmpConstants;
+import org.snmp4j.security.*;
+
+public class SnmpV3Example {
+    public static void main(String[] args) throws Exception {
+        Snmp snmp = new Snmp(new DefaultUdpTransportMapping());
+        snmp.listen();
+
+        // 手动注册安全协议 (SNMP4J 3.x 必须)
+        SecurityProtocols.getInstance()
+            .addAuthenticationProtocol(new AuthSHA())
+            .addPrivacyProtocol(new PrivAES128());
+
+        // 配置 USM 用户
+        OctetString localEngineID = new OctetString(MPv3.createLocalEngineID());
+        USM usm = new USM(SecurityProtocols.getInstance(), localEngineID, 0);
+        UsmUser user = new UsmUser(
+            new OctetString("monitor_user"),
+            AuthHMAC192SHA256.ID,
+            new OctetString("AuthPass123"),
+            PrivAES128.ID,
+            new OctetString("EncryptPass123")
+        );
+        usm.addUser(user.getSecurityName(), user);
+
+        // 构建 SNMPv3 目标
+        UserTarget target = new UserTarget();
+        target.setAddress(GenericAddress.parse("udp:192.168.1.1/161"));
+        target.setVersion(SnmpConstants.version3);
+        target.setSecurityLevel(SecurityLevel.AUTH_PRIV);
+        target.setSecurityName(new OctetString("monitor_user"));
+
+        // 必须先发现 Engine ID
+        byte[] engineID = snmp.discoverAuthoritativeEngineID(target.getAddress(), 3000);
+        if (engineID != null) {
+            target.setAuthoritativeEngineID(engineID);
+
+            PDU pdu = new PDU();
+            pdu.add(new VariableBinding(new OID(".1.3.6.1.2.1.1.3.0")));
+            pdu.setType(PDU.GET);
+
+            ResponseEvent response = snmp.send(pdu, target);
+            System.out.println("Response: " + response.getResponse());
+        }
+        snmp.close();
+    }
+}
 ```
 
 ---

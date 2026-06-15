@@ -460,58 +460,157 @@ curl -u admin:admin -H "Content-Type: application/xml" \
 
 ## 10. 开发实践示例
 
-### 10.1 Python ncclient
+### 10.1 Java NETCONF 客户端 (Apache SSHD + JAXB)
 
-```python
-from ncclient import manager
+```java
+import org.apache.sshd.client.SshClient;
+import org.apache.sshd.client.session.ClientSession;
+import org.w3c.dom.*;
+import javax.xml.parsers.*;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 
-# 连接到 NETCONF 设备
-with manager.connect(
-    host='192.168.1.1',
-    port=830,
-    username='admin',
-    password='admin123',
-    hostkey_verify=False,
-    device_params={'name': 'csr'}  # 或 'junos', 'huawei'
-) as m:
-    # 获取接口配置
-    reply = m.get_config(
-        source='running',
-        filter=('subtree', '''
-          <interfaces xmlns="urn:ietf:params:xml:ns:yang:ietf-interfaces">
-            <interface><name>GigabitEthernet0/0/0</name></interface>
-          </interfaces>
-        ''')
-    )
-    print(reply.xml)
+public class NetconfJavaClient {
 
-    # 修改配置 (候选数据存储 + 事务提交)
-    config = '''
-    <config>
-      <interfaces xmlns="urn:ietf:params:xml:ns:yang:ietf-interfaces">
-        <interface>
-          <name>GigabitEthernet0/0/0</name>
-          <description>Uplink to Core Switch</description>
-          <enabled>true</enabled>
-        </interface>
-      </interfaces>
-    </config>
-    '''
+    private ClientSession session;
+    private PrintWriter out;
+    private BufferedReader in;
+    private String endMarker = "]]>]]>";
 
-    m.lock(target='candidate')
-    m.edit_config(target='candidate', config=config)
-    m.validate(source='candidate')  # dry-run 校验
-    m.commit()  # 原子提交
-    m.unlock(target='candidate')
+    /** 打开 NETCONF 会话 (SSH + NETCONF subsystem) */
+    public void connect(String host, int port, String user, String password) throws Exception {
+        SshClient client = SshClient.setUpDefaultClient();
+        client.start();
+        session = client.connect(user, host, port).verify(5000).getSession();
+        session.addPasswordIdentity(password);
+        session.auth().verify(5000);
 
-    # Confirmed Commit (5分钟安全网)
-    m.edit_config(target='candidate', config=config)
-    m.commit(confirmed=True, timeout='300')
-    # ... 验证网络连通性 ...
-    m.commit()  # 确认提交，或等待超时自动回滚
+        // 启动 NETCONF 子系统 (RFC 6241: SSH 子系统的标准名称为 "netconf")
+        ClientChannel channel = session.createSubsystemChannel("netconf");
+        channel.open().verify(5000);
+
+        out = new PrintWriter(channel.getInvertedIn(), true);
+        in = new BufferedReader(new InputStreamReader(channel.getInvertedOut()));
+
+        // 接收服务器的 <hello> 消息
+        String hello = readUntil(endMarker);
+        System.out.println("Server Hello: " + hello);
+
+        // 发送客户端 <hello>
+        send("<?xml version='1.0' encoding='UTF-8'?>" +
+             "<hello xmlns='urn:ietf:params:xml:ns:netconf:base:1.0'>" +
+             "<capabilities>" +
+             "<capability>urn:ietf:params:netconf:base:1.0</capability>" +
+             "</capabilities>" +
+             "</hello>");
+    }
+
+    /** 发送 NETCONF RPC 请求 */
+    private void send(String xml) {
+        out.print(xml + endMarker);
+        out.flush();
+    }
+
+    /** 读取直到结束标记 */
+    private String readUntil(String marker) throws Exception {
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = in.readLine()) != null) {
+            sb.append(line).append("
+");
+            if (line.contains(marker.replace("]]>", ""))) break;
+        }
+        return sb.toString();
+    }
+
+    // === 核心操作 ===
+
+    /** get-config: 获取配置 */
+    public String getConfig(String source) throws Exception {
+        String rpc = "<rpc message-id='101' " +
+            "xmlns='urn:ietf:params:xml:ns:netconf:base:1.0'>" +
+            "<get-config><source><" + source + "/></source>" +
+            "<filter><interfaces " +
+            "xmlns='urn:ietf:params:xml:ns:yang:ietf-interfaces'>" +
+            "</interfaces></filter></get-config></rpc>";
+        send(rpc);
+        return readUntil(endMarker);
+    }
+
+    /** edit-config: 修改配置 */
+    public String editConfig(String target, String configXml) throws Exception {
+        String rpc = "<rpc message-id='102' " +
+            "xmlns='urn:ietf:params:xml:ns:netconf:base:1.0'>" +
+            "<edit-config><target><" + target + "/></target>" +
+            "<config>" + configXml + "</config></edit-config></rpc>";
+        send(rpc);
+        return readUntil(endMarker);
+    }
+
+    /** commit: 原子提交候选配置 */
+    public String commit() throws Exception {
+        send("<rpc message-id='103' " +
+             "xmlns='urn:ietf:params:xml:ns:netconf:base:1.0'>" +
+             "<commit/></rpc>");
+        return readUntil(endMarker);
+    }
+
+    /** lock: 锁定数据存储 */
+    public String lock(String target) throws Exception {
+        send("<rpc message-id='104' " +
+             "xmlns='urn:ietf:params:xml:ns:netconf:base:1.0'>" +
+             "<lock><target><" + target + "/></target></lock></rpc>");
+        return readUntil(endMarker);
+    }
+
+    /** unlock: 解锁数据存储 */
+    public String unlock(String target) throws Exception {
+        send("<rpc message-id='105' " +
+             "xmlns='urn:ietf:params:xml:ns:netconf:base:1.0'>" +
+             "<unlock><target><" + target + "/></target></unlock></rpc>");
+        return readUntil(endMarker);
+    }
+
+    /** 关闭会话 */
+    public void close() throws Exception {
+        send("<rpc message-id='999' " +
+             "xmlns='urn:ietf:params:xml:ns:netconf:base:1.0'>" +
+             "<close-session/></rpc>");
+        session.close();
+    }
+
+    // === 完整事务工作流 ===
+    public static void main(String[] args) throws Exception {
+        NetconfJavaClient client = new NetconfJavaClient();
+
+        // 1. 连接到设备
+        client.connect("192.168.1.1", 830, "admin", "admin123");
+
+        // 2. 锁定候选配置
+        client.lock("candidate");
+
+        // 3. 修改配置
+        String config = "<interfaces " +
+            "xmlns='urn:ietf:params:xml:ns:yang:ietf-interfaces'>" +
+            "<interface><name>GigabitEthernet0/0/0</name>" +
+            "<description>Uplink to Core</description>" +
+            "<enabled>true</enabled></interface></interfaces>";
+        String result = client.editConfig("candidate", config);
+        System.out.println("Edit result: " + result);
+
+        // 4. 原子提交
+        result = client.commit();
+        System.out.println("Commit result: " + result);
+
+        // 5. 解锁
+        client.unlock("candidate");
+
+        client.close();
+    }
+}
 ```
 
-### 10.2 开发环境快速搭建
+> **Maven 依赖**: `org.apache.sshd:sshd-core:2.12.0` (SSH 客户端) + JDK 内置 `javax.xml` (XML/JAXB 处理)### 10.2 开发环境快速搭建
 
 ```bash
 # 1. 启动 NETCONF 模拟设备 (基于 Containerlab)
@@ -615,7 +714,7 @@ IETF 于 2025 年 11 月发布了草案 **draft-zeng-opsawg-llm-netconf-gap-00**
 | RFC 7950 (YANG 1.1) | https://datatracker.ietf.org/doc/rfc7950/ |
 | RFC 8040 (RESTCONF) | https://datatracker.ietf.org/doc/rfc8040/ |
 | IETF LLM-IBN Gap Analysis | https://datatracker.ietf.org/doc/draft-zeng-opsawg-llm-netconf-gap-00/ |
-| ncclient Python SDK | https://github.com/ncclient/ncclient |
+| Apache SSHD (Java) | https://mina.apache.org/sshd-project/ |
 | YANG Suite (Cisco) | https://github.com/CiscoDevNet/yangsuite |
 | OpenDaylight NETCONF | https://docs.opendaylight.org/projects/netconf/ |
 | Containerlab | https://containerlab.dev/ |
