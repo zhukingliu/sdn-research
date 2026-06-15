@@ -123,7 +123,7 @@
         <div class="card-header"><div class="card-icon blue">🏗️</div><h2>2. 四层架构模型 (RFC 6241)</h2></div>
         <div class="mermaid-diagram">
           <pre class="mermaid">
-graph TB
+flowchart TB
     subgraph L4["Layer 4: Content"]
         YANG_M["YANG Models"]
         CFG["Configuration Data"]
@@ -153,10 +153,10 @@ graph TB
     L3 --> L2
     L2 --> L1
 
-    style L4 fill:#0a1628,stroke:rgba(0,212,255,0.4)
-    style L3 fill:#0a1628,stroke:rgba(0,230,118,0.4)
-    style L2 fill:#0a1628,stroke:rgba(51,102,255,0.4)
-    style L1 fill:#0a1628,stroke:rgba(124,58,237,0.4)
+    style L4 fill:#0a1628,stroke:#00d4ff
+    style L3 fill:#0a1628,stroke:#00e676
+    style L2 fill:#0a1628,stroke:#3366ff
+    style L1 fill:#0a1628,stroke:#7c3aed
           </pre>
         </div>
 
@@ -378,7 +378,7 @@ sequenceDiagram
         <h3>8.1 在 SDN 架构中的角色</h3>
         <div class="mermaid-diagram">
           <pre class="mermaid">
-graph TB
+flowchart TB
     CTRL["SDN Controller, ODL and ONOS and NSO"]
 
     subgraph PLUGIN["NETCONF Southbound Plugin"]
@@ -393,11 +393,11 @@ graph TB
     PLUGIN -->|NETCONF over SSH port 830| R2["Switch-1"]
     PLUGIN -->|NETCONF over SSH port 830| R3["Firewall-1"]
 
-    style CTRL fill:#0a1628,stroke:rgba(0,212,255,0.5),stroke-width:2px
-    style PLUGIN fill:#0c0f17,stroke:rgba(0,230,118,0.3)
-    style R1 fill:#0a1628,stroke:rgba(51,102,255,0.3)
-    style R2 fill:#0a1628,stroke:rgba(51,102,255,0.3)
-    style R3 fill:#0a1628,stroke:rgba(51,102,255,0.3)
+    style CTRL fill:#0a1628,stroke:#00d4ff,stroke-width:2px
+    style PLUGIN fill:#0c0f17,stroke:#00e676
+    style R1 fill:#0a1628,stroke:#3366ff
+    style R2 fill:#0a1628,stroke:#3366ff
+    style R3 fill:#0a1628,stroke:#3366ff
           </pre>
         </div>
 

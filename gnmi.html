@@ -122,7 +122,7 @@
         <div class="card-header"><div class="card-icon blue">🏗️</div><h2>2. 协议栈与核心架构</h2></div>
         <div class="mermaid-diagram">
           <pre class="mermaid">
-graph TB
+flowchart TB
     subgraph YANG["YANG Models"]
         OC["OpenConfig YANG Models"]
         IETF["IETF YANG Models"]
@@ -149,10 +149,10 @@ graph TB
     RPC --> GRPC
     GRPC --> PB
 
-    style YANG fill:#0a1628,stroke:rgba(0,212,255,0.4)
-    style RPC fill:#0a1628,stroke:rgba(0,230,118,0.4)
-    style GRPC fill:#0a1628,stroke:rgba(51,102,255,0.4)
-    style PB fill:#0a1628,stroke:rgba(124,58,237,0.4)
+    style YANG fill:#0a1628,stroke:#00d4ff
+    style RPC fill:#0a1628,stroke:#00e676
+    style GRPC fill:#0a1628,stroke:#3366ff
+    style PB fill:#0a1628,stroke:#7c3aed
           </pre>
         </div>
         <h3>2.1 通信模型</h3>
@@ -383,7 +383,7 @@ sudo mv gnmic /usr/local/bin/
         <h3>8.2 在 SDN 架构中的定位</h3>
         <div class="mermaid-diagram">
           <pre class="mermaid">
-graph TB
+flowchart TB
     CTRL["SDN Controller and NMS"]
 
     GNMI["gNMI, Telemetry + Config"]
@@ -399,11 +399,11 @@ graph TB
     NETCONF --> DEVICE
     OFLOW --> DEVICE
 
-    style CTRL fill:#0a1628,stroke:rgba(0,212,255,0.5),stroke-width:2px
-    style GNMI fill:#0a1628,stroke:rgba(0,230,118,0.4)
-    style NETCONF fill:#0a1628,stroke:rgba(0,212,255,0.4)
-    style OFLOW fill:#0a1628,stroke:rgba(255,171,0,0.4)
-    style DEVICE fill:#0a1628,stroke:rgba(136,153,180,0.3)
+    style CTRL fill:#0a1628,stroke:#00d4ff,stroke-width:2px
+    style GNMI fill:#0a1628,stroke:#00e676
+    style NETCONF fill:#0a1628,stroke:#00d4ff
+    style OFLOW fill:#0a1628,stroke:#ffab00
+    style DEVICE fill:#0a1628,stroke:#8899b4
           </pre>
         </div>
       </div>

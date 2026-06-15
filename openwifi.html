@@ -219,7 +219,7 @@
         <h3>2.1 三层架构总览</h3>
         <div class="mermaid-diagram">
           <pre class="mermaid">
-graph TB
+flowchart TB
     subgraph NB["🌐 北向 REST API (OpenAPI)"]
         OSS["OSS/BSS 系统"]
         PORTAL["Portal"]
@@ -264,12 +264,12 @@ graph TB
     UC -->|"JSON 配置/遥测"| AP
     AP -->|"HAL 抽象"| HW
 
-    style NB fill:#0a1628,stroke:rgba(0,212,255,0.4),stroke-width:1px
-    style CS fill:#0a1628,stroke:rgba(51,102,255,0.4),stroke-width:1px
-    style UC fill:#0a1628,stroke:rgba(0,230,118,0.4),stroke-width:1px
-    style AP fill:#0a1628,stroke:rgba(124,58,237,0.4),stroke-width:1px
-    style HW fill:#0a1628,stroke:rgba(136,153,180,0.3),stroke-width:1px
-    style KAFKA fill:#0c0f17,stroke:rgba(0,212,255,0.3)
+    style NB fill:#0a1628,stroke:#00d4ff,stroke-width:1px
+    style CS fill:#0a1628,stroke:#3366ff,stroke-width:1px
+    style UC fill:#0a1628,stroke:#00e676,stroke-width:1px
+    style AP fill:#0a1628,stroke:#7c3aed,stroke-width:1px
+    style HW fill:#0a1628,stroke:#8899b4,stroke-width:1px
+    style KAFKA fill:#0c0f17,stroke:#00d4ff
           </pre>
         </div>
 
@@ -666,7 +666,7 @@ sequenceDiagram
         <h4>数据模型顶层结构</h4>
         <div class="mermaid-diagram">
           <pre class="mermaid">
-graph TB
+flowchart TB
     CONFIG["configuration.json, 设备配置根"]
 
     CONFIG --> UNIT["unit, 设备基础信息, name and location and timezone"]
@@ -696,12 +696,12 @@ graph TB
     METRICS --> FRAMES["wifi-frames"]
     METRICS --> CRASH["crashlogs"]
 
-    style CONFIG fill:#0a1628,stroke:rgba(0,212,255,0.5),stroke-width:2px
-    style UNIT fill:#0a1628,stroke:rgba(51,102,255,0.3)
-    style IFACES fill:#0a1628,stroke:rgba(0,230,118,0.3)
-    style SERVICES fill:#0a1628,stroke:rgba(124,58,237,0.3)
-    style METRICS fill:#0a1628,stroke:rgba(255,171,0,0.3)
-    style RAW fill:#0a1628,stroke:rgba(136,153,180,0.3)
+    style CONFIG fill:#0a1628,stroke:#00d4ff,stroke-width:2px
+    style UNIT fill:#0a1628,stroke:#3366ff
+    style IFACES fill:#0a1628,stroke:#00e676
+    style SERVICES fill:#0a1628,stroke:#7c3aed
+    style METRICS fill:#0a1628,stroke:#ffab00
+    style RAW fill:#0a1628,stroke:#8899b4
           </pre>
         </div>
 
@@ -796,7 +796,7 @@ reload_config
         <h3>6.1 架构位置</h3>
         <div class="mermaid-diagram">
           <pre class="mermaid">
-graph TB
+flowchart TB
     subgraph CLOUD["☁️ CloudSDK 控制器"]
         MGMT["uCentral 管理通道"]
         TELEM["OpenSync 遥测通道"]
@@ -819,9 +819,9 @@ graph TB
     CLOUD -->|"MQTT and Protobuf"| OS
     APNOS -->|"HAL 抽象层"| CHIP
 
-    style CLOUD fill:#0a1628,stroke:rgba(51,102,255,0.4)
-    style APNOS fill:#0a1628,stroke:rgba(124,58,237,0.4)
-    style CHIP fill:#0a1628,stroke:rgba(136,153,180,0.3)
+    style CLOUD fill:#0a1628,stroke:#3366ff
+    style APNOS fill:#0a1628,stroke:#7c3aed
+    style CHIP fill:#0a1628,stroke:#8899b4
           </pre>
         </div>
 
@@ -928,7 +928,7 @@ graph TB
         <h3>8.1 互操作架构</h3>
         <div class="mermaid-diagram">
           <pre class="mermaid">
-graph LR
+flowchart LR
     CTRL["☁️ CloudSDK, 统一控制器"]
 
     AP_A["🔵 厂商 A AP, WiFi 6"]
@@ -948,14 +948,14 @@ graph LR
     CTRL --- MODEL
     CTRL --- TELEM2
 
-    style CTRL fill:#0a1628,stroke:rgba(0,212,255,0.5),stroke-width:2px
-    style AP_A fill:#0a1628,stroke:rgba(51,102,255,0.4)
-    style AP_B fill:#0a1628,stroke:rgba(0,230,118,0.4)
-    style AP_C fill:#0a1628,stroke:rgba(124,58,237,0.4)
-    style AP_D fill:#0a1628,stroke:rgba(255,171,0,0.4)
-    style PROTO fill:#0c0f17,stroke:rgba(0,230,118,0.3)
-    style MODEL fill:#0c0f17,stroke:rgba(0,212,255,0.2)
-    style TELEM2 fill:#0c0f17,stroke:rgba(0,212,255,0.2)
+    style CTRL fill:#0a1628,stroke:#00d4ff,stroke-width:2px
+    style AP_A fill:#0a1628,stroke:#3366ff
+    style AP_B fill:#0a1628,stroke:#00e676
+    style AP_C fill:#0a1628,stroke:#7c3aed
+    style AP_D fill:#0a1628,stroke:#ffab00
+    style PROTO fill:#0c0f17,stroke:#00e676
+    style MODEL fill:#0c0f17,stroke:#00d4ff
+    style TELEM2 fill:#0c0f17,stroke:#00d4ff
           </pre>
         </div>
 
@@ -1423,7 +1423,7 @@ curl -s https://controller:16002/api/v1/device/AABBCCDDEEFF/state | jq .
         <p>WDS (Wireless Distribution System) 允许 AP 间通过无线链路回程，适用于布线困难的场景：</p>
         <div class="mermaid-diagram">
           <pre class="mermaid">
-graph LR
+flowchart LR
     GW[("🏢 网关, 互联网出口")]
     ROOT["📡 Root AP, wds-ap 模式, 5GHz 回程"]
     LEAF1["📡 Leaf AP-1, wds-sta 模式, 2.4GHz 客户端服务"]
@@ -1439,10 +1439,10 @@ graph LR
     LEAF1 --> C2
     LEAF2 --> C3
 
-    style GW fill:#0a1628,stroke:rgba(0,230,118,0.4)
-    style ROOT fill:#0a1628,stroke:rgba(0,212,255,0.4),stroke-width:2px
-    style LEAF1 fill:#0a1628,stroke:rgba(51,102,255,0.3)
-    style LEAF2 fill:#0a1628,stroke:rgba(51,102,255,0.3)
+    style GW fill:#0a1628,stroke:#00e676
+    style ROOT fill:#0a1628,stroke:#00d4ff,stroke-width:2px
+    style LEAF1 fill:#0a1628,stroke:#3366ff
+    style LEAF2 fill:#0a1628,stroke:#3366ff
           </pre>
         </div>
 
