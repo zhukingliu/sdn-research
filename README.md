@@ -11,6 +11,7 @@ SDN (Software Defined Networking) 技术研究仓库，专注于网络协议与�
 | **TIP OpenWiFi** | [🌐](openwifi.html) | [📝](OpenWiFi-调研报告.md) | 开源企业级 Wi-Fi 系统架构、CloudSDK、APNOS、uCentral 协议、WiFi 7 |
 | **gNMI** | [🌐](gnmi.html) | [📝](gNMI-调研报告.md) | gRPC 网络管理接口、流式遥测、OpenConfig YANG、AI 网络监控 |
 | **NETCONF** | [🌐](netconf.html) | [📝](NETCONF-调研报告.md) | IETF 标准配置协议、YANG 建模、ACID 事务语义、SDN 集成 |
+| **SNMP** | [🌐](snmp.html) | [📝](SNMP-调研报告.md) | 网络管理基石协议、MIB/OID、v1/v2c/v3、USM/VACM、Python 开发 |
 
 ## 🔬 研究方向
 
@@ -29,9 +30,11 @@ sdn-research/
 ├── openwifi.html               # OpenWiFi 完整调研报告
 ├── gnmi.html                   # gNMI 完整调研报告
 ├── netconf.html                # NETCONF 完整调研报告
+├── snmp.html                   # SNMP 完整调研报告
 ├── OpenWiFi-调研报告.md         # OpenWiFi Markdown 原文
 ├── gNMI-调研报告.md             # gNMI Markdown 原文
 ├── NETCONF-调研报告.md          # NETCONF Markdown 原文
+├── SNMP-调研报告.md             # SNMP Markdown 原文
 ├── assets/
 │   ├── css/style.css           # 赛博朋克风格样式
 │   └── js/main.js              # 粒子引擎 + 导航 + 交互

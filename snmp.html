@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SNMP 调研 | SDN Research</title>
+<meta name="description" content="SNMP 网络管理协议深度调研 — 三版本对比、MIB/OID、SNMPv3安全、Python开发">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true, theme: 'dark',
+    themeVariables: {
+      primaryColor: '#0c1a2b', primaryTextColor: '#e0e6f0', primaryBorderColor: '#00d4ff',
+      lineColor: '#00d4ff', secondaryColor: '#0a1628', tertiaryColor: '#0c0f17',
+      fontFamily: '"JetBrains Mono","Noto Sans SC",monospace', fontSize: '13px',
+      actorBkg: '#0c1a2b', actorBorder: '#00d4ff', actorTextColor: '#e0e6f0',
+      signalColor: '#8899b4', labelTextColor: '#e0e6f0',
+      noteBkgColor: '#0c0f17', activationBkgColor: '#0c0f17',
+    }
+  });
+</script>
+</head>
+<body>
+
+<canvas id="particle-canvas"></canvas>
+<button class="sidebar-toggle" aria-label="Menu">☰</button>
+<button class="back-to-top" aria-label="Back to top">↑</button>
+
+<div class="app-container">
+
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <a href="index.html" class="sidebar-logo">
+        <div class="logo-icon">📊</div>
+        <div class="logo-text">SDN Research<small>SNMP Report</small></div>
+      </a>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section"><div class="nav-section-title">导航</div>
+        <a href="index.html" class="nav-link"><span class="nav-dot"></span>← 返回门户</a>
+        <a href="openwifi.html" class="nav-link"><span class="nav-dot"></span>OpenWiFi 调研</a>
+        <a href="gnmi.html" class="nav-link"><span class="nav-dot"></span>gNMI 调研</a>
+        <a href="netconf.html" class="nav-link"><span class="nav-dot"></span>NETCONF 调研</a>
+      </div>
+      <div class="nav-section"><div class="nav-section-title">本页</div>
+        <a href="#overview" class="nav-link active"><span class="nav-dot"></span>概述与背景</a>
+        <a href="#architecture" class="nav-link"><span class="nav-dot"></span>核心架构</a>
+        <a href="#mib" class="nav-link"><span class="nav-dot"></span>MIB 与 OID</a>
+        <a href="#versions" class="nav-link"><span class="nav-dot"></span>三版本对比</a>
+        <a href="#snmpv3" class="nav-link"><span class="nav-dot"></span>SNMPv3 安全架构</a>
+        <a href="#comparison" class="nav-link"><span class="nav-dot"></span>协议对比</a>
+        <a href="#dev" class="nav-link"><span class="nav-dot"></span>Python 开发实践</a>
+      </div>
+    </nav>
+    <div class="sidebar-footer"><span>🟢 RFC 1157-3418 · 2026.06</span></div>
+  </aside>
+
+  <main class="main-content">
+
+    <div class="hero reveal">
+      <div class="hero-badge"><span class="pulse"></span> LEGACY & DOMINANT</div>
+      <h1>SNMP<br>Simple Network Management Protocol</h1>
+      <p class="hero-subtitle">
+        近 40 年历史的网络管理协议。基于 Manager-Agent 模型，UDP 传输，MIB/OID 树形数据组织。
+        尽管 gNMI/NETCONF 兴起，SNMP 仍然是全球 95%+ 网络设备的监控事实标准。
+      </p>
+      <div class="hero-meta">
+        <div class="hero-meta-item"><span class="meta-icon">📅</span> 2026-06-14</div>
+        <div class="hero-meta-item"><span class="meta-icon">📌</span> RFC 1157 (v1) / 3411 (v3)</div>
+        <div class="hero-meta-item"><span class="meta-icon">🏢</span> IETF · 1988</div>
+        <div class="hero-meta-item"><span class="meta-icon">📄</span> CC BY 4.0</div>
+      </div>
+      <div style="margin-top:18px;">
+        <span class="tag cyan">SNMPv3</span><span class="tag blue">MIB</span><span class="tag green">OID</span>
+        <span class="tag purple">USM</span><span class="tag amber">GETBULK</span><span class="tag cyan">TRAP</span>
+      </div>
+    </div>
+
+    <!-- Overview -->
+    <section id="overview" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon cyan">📖</div><h2>1. 概述与背景</h2></div>
+        <h3>1.1 什么是 SNMP</h3>
+        <p><strong>SNMP (Simple Network Management Protocol)</strong> 是 1988 年首次定义的应用层网络管理协议 (RFC 1157)，至今已有近 40 年历史。它基于 <strong>管理者-代理 (Manager-Agent)</strong> 模型，使用 <strong>UDP</strong> 作为传输协议，通过 <strong>MIB (管理信息库)</strong> 树形结构组织和管理设备数据。</p>
+        <blockquote>尽管 gNMI、NETCONF 等现代协议兴起，SNMP 仍然是网络设备监控的 "最后防线"，在企业网络、电信、IoT 等领域无处不在。</blockquote>
+
+        <h3>1.2 发展里程碑</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>时间</th><th>里程碑</th></tr></thead>
+          <tbody>
+            <tr><td>1988</td><td>RFC 1157: <strong>SNMPv1</strong> 发布</td></tr>
+            <tr><td>1996</td><td><strong>SNMPv2c</strong> 发布 (Community-based)，引入 GetBulk 和 Counter64</td></tr>
+            <tr><td>2002</td><td>RFC 3411-3418: <strong>SNMPv3</strong> 完整安全标准 (USM + VACM)</td></tr>
+            <tr><td>2004-2020</td><td>Cisco/Juniper/Huawei/HP 全面支持 SNMPv3</td></tr>
+            <tr><td><strong>2025</strong></td><td><strong>SNMP 仍是全球网络设备监控最高普及率协议 (>95%)</strong></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Architecture -->
+    <section id="architecture" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon blue">🏗️</div><h2>2. 核心架构: Manager-Agent 模型</h2></div>
+        <div class="mermaid-diagram">
+          <pre class="mermaid">
+flowchart LR
+    MGR["SNMP Manager (NMS)<br/>Zabbix / PRTG / Datadog"]
+
+    subgraph DEVICE["Managed Device"]
+        AGENT["SNMP Agent (snmpd)"]
+        MIB_TREE[("MIB Tree<br/>OID Database")]
+        AGENT --- MIB_TREE
+    end
+
+    MGR -->|"UDP 161: GET / GETNEXT / GETBULK / SET"| AGENT
+    AGENT -->|"UDP 161: Response"| MGR
+    AGENT -->|"UDP 162: TRAP / INFORM"| MGR
+
+    style MGR fill:#0a1628,stroke:#00d4ff,stroke-width:2px
+    style DEVICE fill:#0c0f17,stroke:#00e676
+    style AGENT fill:#0a1628,stroke:#00e676
+    style MIB_TREE fill:#0a1628,stroke:#3366ff
+          </pre>
+        </div>
+        <h3>2.1 AgentX 子代理架构</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>组件</th><th>描述</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Master Agent (snmpd)</strong></td><td>主 SNMP 代理，处理网络通信</td></tr>
+            <tr><td><strong>Sub-agent (AgentX)</strong></td><td>动态扩展的 MIB 模块，通过 Unix Socket/TCP 注册到主代理</td></tr>
+            <tr><td><strong>AgentX Protocol (RFC 2741)</strong></td><td>主代理与子代理之间的标准通信协议，无需重启 snmpd</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- MIB & OID -->
+    <section id="mib" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon green">📐</div><h2>3. MIB 树与 OID 体系</h2></div>
+
+        <h3>3.1 MIB 树结构</h3>
+        <div class="mermaid-diagram">
+          <pre class="mermaid">
+flowchart TB
+    ROOT["Root (.)"]
+    ISO["iso (1)"]
+    ORG["org (3)"]
+    DOD["dod (6)"]
+    INET["internet (1)"]
+
+    MGMT["mgmt (2) → mib-2 (1)<br/>Standard MIBs"]
+    PRIV["private (4) → enterprises (1)<br/>Vendor MIBs"]
+
+    SYSTEM["system (1)<br/>sysDescr, sysUpTime"]
+    IFACE["interfaces (2)<br/>ifTable, ifInOctets"]
+    IPGRP["ip (4)<br/>ipInReceives"]
+
+    CISCO["cisco (9)<br/>Cisco MIBs"]
+    UCD["net-snmp (2021)<br/>CPU, Memory"]
+
+    ROOT --> ISO
+    ISO --> ORG
+    ORG --> DOD
+    DOD --> INET
+    INET --> MGMT
+    INET --> PRIV
+    MGMT --> SYSTEM
+    MGMT --> IFACE
+    MGMT --> IPGRP
+    PRIV --> CISCO
+    PRIV --> UCD
+
+    style ROOT fill:#0a1628,stroke:#00d4ff,stroke-width:2px
+    style INET fill:#0a1628,stroke:#00e676
+    style MGMT fill:#0a1628,stroke:#3366ff
+    style PRIV fill:#0a1628,stroke:#7c3aed
+          </pre>
+        </div>
+
+        <h3>3.2 常用 OID 速查</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>OID</th><th>标签</th><th>描述</th></tr></thead>
+          <tbody>
+            <tr><td><code>1.3.6.1.2.1.1.1.0</code></td><td>sysDescr</td><td>系统描述字符串</td></tr>
+            <tr><td><code>1.3.6.1.2.1.1.3.0</code></td><td>sysUpTime</td><td>系统运行时间 (百分秒)</td></tr>
+            <tr><td><code>1.3.6.1.2.1.1.5.0</code></td><td>sysName</td><td>设备主机名</td></tr>
+            <tr><td><code>1.3.6.1.2.1.2.2.1.10.x</code></td><td>ifInOctets.x</td><td>接口 x 接收字节数 (Counter32/Counter64)</td></tr>
+            <tr><td><code>1.3.6.1.2.1.2.2.1.16.x</code></td><td>ifOutOctets.x</td><td>接口 x 发送字节数</td></tr>
+            <tr><td><code>1.3.6.1.2.1.2.2.1.8.x</code></td><td>ifOperStatus.x</td><td>接口状态 (1=up, 2=down)</td></tr>
+            <tr><td><code>1.3.6.1.4.1.2021.10.1.3.1</code></td><td>ssCpuUser</td><td>CPU 用户态使用率</td></tr>
+            <tr><td><code>1.3.6.1.4.1.2021.4.5.0</code></td><td>memTotalReal</td><td>总物理内存 (KB)</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>3.3 ASN.1 数据类型</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>类型</th><th>描述</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Counter32</strong></td><td>32 位单调递增计数器 (溢出回 0)</td></tr>
+            <tr><td><strong>Counter64</strong></td><td>64 位单调递增计数器 (高速接口)</td></tr>
+            <tr><td><strong>Gauge32</strong></td><td>可增可减的当前值 (如连接数)</td></tr>
+            <tr><td><strong>TimeTicks</strong></td><td>百分秒计时器 (运行时间)</td></tr>
+            <tr><td><strong>OCTET STRING</strong></td><td>字节数组 (MAC 地址 / 字符串)</td></tr>
+            <tr><td><strong>IpAddress</strong></td><td>IPv4 地址 (4 字节)</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Versions -->
+    <section id="versions" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon purple">📋</div><h2>4. 三版本深度对比</h2></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>维度</th><th>SNMPv1</th><th>SNMPv2c</th><th>SNMPv3</th></tr></thead>
+          <tbody>
+            <tr><td><strong>RFC</strong></td><td>1157</td><td>1901</td><td>3411-3418</td></tr>
+            <tr><td><strong>认证</strong></td><td>Community String (明文)</td><td>Community String (明文)</td><td>USM (HMAC-MD5 / SHA)</td></tr>
+            <tr><td><strong>加密</strong></td><td>无</td><td>无</td><td>DES / AES (128/192/256)</td></tr>
+            <tr><td><strong>访问控制</strong></td><td>无</td><td>无</td><td>VACM (基于角色的 MIB 视图)</td></tr>
+            <tr><td><strong>防重放</strong></td><td>无</td><td>无</td><td>EngineID + 时间戳</td></tr>
+            <tr><td><strong>Bulk Get</strong></td><td>无</td><td>GetBulkRequest</td><td>GetBulkRequest</td></tr>
+            <tr><td><strong>64 位计数器</strong></td><td>无</td><td>Counter64</td><td>Counter64</td></tr>
+            <tr><td><strong>INFORM</strong></td><td>无</td><td>InformRequest (确认通知)</td><td>InformRequest</td></tr>
+            <tr><td><strong>部署占比</strong></td><td>~5% (遗留)</td><td>~55% (最常见)</td><td>~40% (增长中)</td></tr>
+            <tr><td><strong>适用场景</strong></td><td>古董设备</td><td>内网/非敏感监控</td><td>企业核心 / 合规环境</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>4.1 核心操作 (PDU)</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>操作</th><th>v1</th><th>v2c</th><th>v3</th><th>描述</th></tr></thead>
+          <tbody>
+            <tr><td><strong>GET</strong></td><td>✅</td><td>✅</td><td>✅</td><td>获取单个 OID 值</td></tr>
+            <tr><td><strong>GETNEXT</strong></td><td>✅</td><td>✅</td><td>✅</td><td>获取下一个 OID (MIB Walk 基础)</td></tr>
+            <tr><td><strong>GETBULK</strong></td><td>❌</td><td>✅</td><td>✅</td><td>批量获取多个连续 OID</td></tr>
+            <tr><td><strong>SET</strong></td><td>✅</td><td>✅</td><td>✅</td><td>修改 OID 值 (写操作)</td></tr>
+            <tr><td><strong>TRAP</strong></td><td>✅</td><td>✅</td><td>✅</td><td>异步告警 (无确认)</td></tr>
+            <tr><td><strong>INFORM</strong></td><td>❌</td><td>✅</td><td>✅</td><td>确认式告警 (接收方 ACK)</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- SNMPv3 Security -->
+    <section id="snmpv3" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon cyan">🔐</div><h2>5. SNMPv3 安全架构详解</h2></div>
+        <p>SNMPv3 引入了两套互补的安全子系统: <strong>USM (User-based Security Model)</strong> 处理认证加密，<strong>VACM (View-based Access Control Model)</strong> 处理授权和访问控制。</p>
+
+        <h3>5.1 USM 安全级别</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>安全级别</th><th>认证</th><th>加密</th><th>适用场景</th></tr></thead>
+          <tbody>
+            <tr><td><strong>noAuthNoPriv</strong></td><td>无</td><td>无</td><td>测试环境</td></tr>
+            <tr><td><strong>authNoPriv</strong></td><td>HMAC-MD5 / SHA</td><td>无</td><td>可信内网监控</td></tr>
+            <tr><td><strong>authPriv</strong></td><td>HMAC-SHA</td><td>DES / AES (128/192/256)</td><td>生产环境 / 跨公网</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>5.2 VACM 访问控制</h3>
+        <div class="mermaid-diagram">
+          <pre class="mermaid">
+flowchart LR
+    USER["User<br/>monitor_user"] --> GROUP["Group<br/>monitor_group"]
+    GROUP --> VIEW["View<br/>read_if_only"]
+    VIEW --> INCL["Included: IF-MIB<br/>1.3.6.1.2.1.2"]
+    VIEW --> EXCL["Excluded: IF-MIB Admin<br/>ifAdminStatus"]
+
+    style USER fill:#0a1628,stroke:#00d4ff
+    style GROUP fill:#0a1628,stroke:#00e676
+    style VIEW fill:#0a1628,stroke:#3366ff
+    style INCL fill:#0a1628,stroke:#00e676
+    style EXCL fill:#0a1628,stroke:#ff4757
+          </pre>
+        </div>
+
+        <h3>5.3 SNMPv3 配置示例</h3>
+        <div class="terminal">
+          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">Net-SNMP SNMPv3 Setup</span></div>
+          <div class="terminal-body"><span class="comment"># Create SNMPv3 user (auth + encrypt)</span>
+net-snmp-create-v3-user -ro \
+  -A AuthPass123 -X EncryptPass123 \
+  -a SHA -x AES monitor_user
+
+<span class="comment"># Verify connection</span>
+snmpget -v3 -u monitor_user -l authPriv \
+  -a SHA -A AuthPass123 \
+  -x AES -X EncryptPass123 \
+  192.168.1.1 sysUpTime.0</div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Comparison -->
+    <section id="comparison" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon amber">⚖️</div><h2>6. 与 gNMI / NETCONF 对比</h2></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>维度</th><th>SNMP</th><th>gNMI</th><th>NETCONF</th></tr></thead>
+          <tbody>
+            <tr><td><strong>传输</strong></td><td>UDP (161/162)</td><td>gRPC/HTTP2 (57400)</td><td>SSH (830)</td></tr>
+            <tr><td><strong>序列化</strong></td><td>ASN.1 BER</td><td>Protobuf (binary)</td><td>XML</td></tr>
+            <tr><td><strong>数据模型</strong></td><td>MIB (SMI)</td><td>OpenConfig YANG</td><td>IETF YANG</td></tr>
+            <tr><td><strong>配置操作</strong></td><td>SET (有限)</td><td>Set</td><td>edit-config (事务)</td></tr>
+            <tr><td><strong>流式遥测</strong></td><td>Polling only</td><td>Subscribe (push)</td><td>Polling only</td></tr>
+            <tr><td><strong>原子事务</strong></td><td>No</td><td>No</td><td>commit/rollback</td></tr>
+            <tr><td><strong>效率</strong></td><td>Medium</td><td>Very High</td><td>Medium</td></tr>
+            <tr><td><strong>部署复杂度</strong></td><td>Low</td><td>Medium</td><td>Medium</td></tr>
+            <tr><td><strong>设备兼容性</strong></td><td>95%+</td><td>Growing</td><td>Enterprise</td></tr>
+            <tr><td><strong>最佳场景</strong></td><td>Legacy monitoring</td><td>AI fabric telemetry</td><td>Core config mgmt</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Dev -->
+    <section id="dev" data-section>
+      <div class="card reveal">
+        <div class="card-header"><div class="card-icon green">💻</div><h2>7. Python netsnmp 开发实践</h2></div>
+        <div class="terminal">
+          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">Python netsnmp — GET / Walk / Bulk</span></div>
+          <div class="terminal-body"><span class="cmd">import</span> netsnmp
+
+<span class="comment"># Session setup (SNMPv2c)</span>
+session = netsnmp.Session(
+    Version=<span class="prompt">2</span>,
+    DestHost=<span class="prompt">'192.168.1.1'</span>,
+    Community=<span class="prompt">'public'</span>
+)
+
+<span class="comment"># GET - single OID</span>
+oid = netsnmp.Varbind(<span class="prompt">'sysUpTime'</span>, <span class="prompt">'0'</span>)
+result = session.get(netsnmp.VarList(oid))
+print(<span class="prompt">f'Uptime: {result[0]}'</span>)
+
+<span class="comment"># MIB Walk (GETNEXT loop)</span>
+<span class="cmd">def</span> snmp_walk(session, base_oid=<span class="prompt">'.1.3.6.1.2.1.2.2.1'</span>):
+    oid = netsnmp.Varbind(base_oid)
+    results = {}
+    <span class="cmd">while True</span>:
+        result = session.getnext(netsnmp.VarList(oid))
+        <span class="cmd">if not</span> result <span class="cmd">or not</span> result[<span class="prompt">0</span>]:
+            <span class="cmd">break</span>
+        tag, val = result[<span class="prompt">0</span>]
+        <span class="cmd">if not</span> tag.startswith(base_oid):
+            <span class="cmd">break</span>
+        results[tag] = val
+        oid = netsnmp.Varbind(tag)
+    <span class="cmd">return</span> results
+
+<span class="comment"># GETBULK - batch retrieval</span>
+oids = netsnmp.VarList(
+    netsnmp.Varbind(<span class="prompt">'ifInOctets'</span>, <span class="prompt">'1'</span>),
+    netsnmp.Varbind(<span class="prompt">'ifOutOctets'</span>, <span class="prompt">'1'</span>),
+    netsnmp.Varbind(<span class="prompt">'ifOperStatus'</span>, <span class="prompt">'1'</span>),
+)
+result = session.getbulk(<span class="prompt">0</span>, <span class="prompt">10</span>, oids)</div>
+        </div>
+
+        <h3>7.1 SNMPv3 安全连接</h3>
+        <div class="terminal">
+          <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">SNMPv3 Session with authPriv</span></div>
+          <div class="terminal-body">session = netsnmp.Session(
+    Version=<span class="prompt">3</span>,
+    DestHost=<span class="prompt">'192.168.1.1'</span>,
+    SecName=<span class="prompt">'monitor_user'</span>,
+    SecLevel=<span class="prompt">'authPriv'</span>,        <span class="comment"># auth + encrypt</span>
+    AuthProto=<span class="prompt">'SHA'</span>,
+    AuthPass=<span class="prompt">'AuthPass123'</span>,
+    PrivProto=<span class="prompt">'AES'</span>,
+    PrivPass=<span class="prompt">'EncryptPass123'</span>
+)
+result = session.get(
+    netsnmp.VarList(netsnmp.Varbind(<span class="prompt">'sysUpTime'</span>, <span class="prompt">'0'</span>))
+)</div>
+        </div>
+
+        <h3>7.2 2026 年协议分工总结</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>场景</th><th>推荐协议</th></tr></thead>
+          <tbody>
+            <tr><td>遗留设备 / 基础监控</td><td><strong>SNMP</strong> (95%+ 兼容)</td></tr>
+            <tr><td>AI 训练网络流式遥测</td><td><strong>gNMI</strong> (亚秒级推送)</td></tr>
+            <tr><td>核心网事务性配置</td><td><strong>NETCONF</strong> (ACID 事务)</td></tr>
+            <tr><td>混合环境</td><td><strong>SNMP + gNMI</strong> 双模代理</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <footer class="site-footer reveal">
+      <span>© 2026 SDN Research · Built with ❤️</span>
+      <span>CC BY 4.0 · <a href="https://github.com/zhukingliu/sdn-research">GitHub</a></span>
+    </footer>
+
+  </main>
+</div>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>

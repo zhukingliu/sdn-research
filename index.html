@@ -164,23 +164,41 @@
       <div class="pc-arrow">查看报告 →</div>
     </a>
 
+    <!-- SNMP Card -->
+    <a href="snmp.html" class="portal-card" style="--card-accent: #ffab00;">
+      <div class="pc-icon">📊</div>
+      <span class="pc-tag" style="background:rgba(255,171,0,0.1);color:#ffab00;border:1px solid rgba(255,171,0,0.2);">UDP · Polling</span>
+      <h2>SNMP</h2>
+      <p class="pc-desc">
+        Simple Network Management Protocol 深度调研。近 40 年历史的网络管理基石协议，
+        涵盖 Manager-Agent 架构、MIB/OID 树形体系、SNMPv1/v2c/v3 三代演进、
+        USM+VACM 安全框架、GETBULK/Trap/Inform 操作详解，以及 Python netsnmp 开发实践。
+      </p>
+      <div class="pc-meta">
+        <span>📄 13 章节</span>
+        <span>📅 2026.06</span>
+        <span>🏢 IETF · RFC 1157</span>
+      </div>
+      <div class="pc-arrow">查看报告 →</div>
+    </a>
+
   </div>
 
   <div class="portal-divider">PROTOCOL COMPARISON</div>
 
   <!-- Quick comparison -->
   <div class="card" style="text-align:center;">
-    <h3 style="border:none;margin-top:0;">三大协议定位</h3>
+    <h3 style="border:none;margin-top:0;">四大协议定位</h3>
     <div class="table-wrap" style="margin:16px 0;">
       <table>
-        <thead><tr><th>维度</th><th>OpenWiFi</th><th>gNMI</th><th>NETCONF</th></tr></thead>
+        <thead><tr><th>维度</th><th>OpenWiFi</th><th>gNMI</th><th>NETCONF</th><th>SNMP</th></tr></thead>
         <tbody>
           <tr><td><strong>领域</strong></td><td>企业级 Wi-Fi 系统</td><td>网络管理与遥测</td><td>网络配置管理</td></tr>
           <tr><td><strong>标准化</strong></td><td>TIP 社区 (Apache 2.0)</td><td>OpenConfig (de facto)</td><td>IETF RFC 6241</td></tr>
           <tr><td><strong>传输</strong></td><td>WebSocket + mTLS</td><td>gRPC/HTTP2</td><td>SSH (port 830)</td></tr>
           <tr><td><strong>序列化</strong></td><td>JSON</td><td>Protobuf (binary)</td><td>XML</td></tr>
           <tr><td><strong>核心能力</strong></td><td>解耦 AP 管控 + 云原生</td><td>流式遥测 + 双向配置</td><td>事务性配置管理</td></tr>
-          <tr><td><strong>SDN 角色</strong></td><td>无线 SDN (控制与转发分离)</td><td>南向遥测 + 配置</td><td>南向事务配置</td></tr>
+          <tr><td><strong>SDN 角色</strong></td><td>无线 SDN (控制与转发分离)</td><td>南向遥测 + 配置</td><td>南向事务配置</td><td>遗留设备监控</td></tr>
         </tbody>
       </table>
     </div>
