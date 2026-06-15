@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RESTCONF 调研 | SDN Research</title>
+<meta name="description" content="RESTCONF (RFC 8040) 网络配置 RESTful API 深度调研">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{primaryColor:'#0c1a2b',primaryTextColor:'#e0e6f0',primaryBorderColor:'#00d4ff',lineColor:'#00d4ff',secondaryColor:'#0a1628',tertiaryColor:'#0c0f17',fontFamily:'"JetBrains Mono","Noto Sans SC",monospace',fontSize:'13px',actorBkg:'#0c1a2b',actorBorder:'#00d4ff',actorTextColor:'#e0e6f0',signalColor:'#8899b4',labelTextColor:'#e0e6f0',noteBkgColor:'#0c0f17'}});</script>
+</head>
+<body>
+<canvas id="particle-canvas"></canvas>
+<button class="sidebar-toggle">☰</button>
+<button class="back-to-top">↑</button>
+<div class="app-container">
+  <aside class="sidebar">
+    <div class="sidebar-header"><a href="index.html" class="sidebar-logo"><div class="logo-icon">🌐</div><div class="logo-text">SDN Research<small>RESTCONF Report</small></div></a></div>
+    <nav class="sidebar-nav">
+      <div class="nav-section"><div class="nav-section-title">导航</div>
+        <a href="index.html" class="nav-link"><span class="nav-dot"></span>← 返回门户</a>
+        <a href="openwifi.html" class="nav-link"><span class="nav-dot"></span>OpenWiFi</a>
+        <a href="gnmi.html" class="nav-link"><span class="nav-dot"></span>gNMI</a>
+        <a href="netconf.html" class="nav-link"><span class="nav-dot"></span>NETCONF</a>
+        <a href="snmp.html" class="nav-link"><span class="nav-dot"></span>SNMP</a>
+      </div>
+      <div class="nav-section"><div class="nav-section-title">本页</div>
+        <a href="#overview" class="nav-link active"><span class="nav-dot"></span>概述与背景</a>
+        <a href="#architecture" class="nav-link"><span class="nav-dot"></span>核心架构</a>
+        <a href="#crud" class="nav-link"><span class="nav-dot"></span>HTTP CRUD 操作</a>
+        <a href="#yang" class="nav-link"><span class="nav-dot"></span>YANG 数据访问</a>
+        <a href="#patch" class="nav-link"><span class="nav-dot"></span>YANG Patch</a>
+        <a href="#comparison" class="nav-link"><span class="nav-dot"></span>协议对比</a>
+        <a href="#dev" class="nav-link"><span class="nav-dot"></span>Java 开发实践</a>
+      </div>
+    </nav>
+    <div class="sidebar-footer"><span>🟢 RFC 8040 · 2026.06</span></div>
+  </aside>
+  <main class="main-content">
+    <div class="hero reveal">
+      <div class="hero-badge"><span class="pulse"></span> IETF RFC 8040</div>
+      <h1>RESTCONF<br>RESTful Configuration Protocol</h1>
+      <p class="hero-subtitle">基于 HTTP/HTTPS 的 YANG 模型驱动 RESTful 网络管理协议。JSON/XML 双编码，curl/Postman 即可调试，是 Web DevOps 集成 YANG 数据模型的首选接口。</p>
+      <div class="hero-meta">
+        <div class="hero-meta-item"><span class="meta-icon">📅</span> 2026-06-14</div>
+        <div class="hero-meta-item"><span class="meta-icon">📌</span> RFC 8040 + 8072 (YANG Patch)</div>
+        <div class="hero-meta-item"><span class="meta-icon">🏢</span> IETF · 2017</div>
+        <div class="hero-meta-item"><span class="meta-icon">📄</span> CC BY 4.0</div>
+      </div>
+      <div style="margin-top:18px;"><span class="tag cyan">RESTCONF</span><span class="tag blue">HTTP</span><span class="tag green">JSON</span><span class="tag purple">YANG Patch</span><span class="tag amber">CRUD</span></div>
+    </div>
+
+    <section id="overview" data-section><div class="card reveal">
+      <div class="card-header"><div class="card-icon cyan">📖</div><h2>1. 概述与背景</h2></div>
+      <h3>1.1 什么是 RESTCONF</h3>
+      <p><strong>RESTCONF (RESTful Configuration Protocol)</strong> 是 IETF 于 2017 年发布的标准化协议 (RFC 8040)，定义了一个基于 <strong>HTTP</strong> 的编程接口，用于访问 <strong>YANG</strong> 数据模型定义的数据，利用 NETCONF 定义的数据存储概念。</p>
+      <blockquote>RESTCONF = YANG 数据模型 + HTTP RESTful API + JSON/XML 双编码。它将网络配置管理带入了 Web 开发者的舒适区。</blockquote>
+      <h3>1.2 发展里程碑</h3>
+      <div class="table-wrap"><table><thead><tr><th>时间</th><th>里程碑</th></tr></thead><tbody>
+        <tr><td>2017</td><td><strong>RFC 8040</strong>: RESTCONF 正式发布</td></tr>
+        <tr><td>2017</td><td>RFC 8072: <strong>YANG Patch</strong> 媒体类型</td></tr>
+        <tr><td>2024</td><td>SONiC mgmt-framework 实现 RESTCONF Go Server</td></tr>
+        <tr><td>2025</td><td>IETF 推进 RESTCONF 分页扩展 (limit/offset/cursor)</td></tr>
+        <tr><td><strong>2026</strong></td><td><strong>RESTCONF 成为 Web 驱动网络自动化的首选接口</strong></td></tr>
+      </tbody></table></div>
+    </div></section>
+    <hr class="section-divider">
+
+    <section id="architecture" data-section><div class="card reveal">
+      <div class="card-header"><div class="card-icon blue">🏗️</div><h2>2. 核心架构</h2></div>
+      <div class="mermaid-diagram"><pre class="mermaid">
+flowchart TB
+    CLIENTS["RESTCONF Clients"]
+    CLIENTS2["curl, Postman, Python, Java HttpClient, NSO"]
+    CLIENTS --- CLIENTS2
+    HTTP["HTTP Methods"]
+    METHODS["GET, POST, PUT, PATCH, DELETE, OPTIONS"]
+    HTTP --- METHODS
+    TLS["HTTPS (TLS 1.3)"]
+    ROOT["RESTCONF Root Resources"]
+    DATA["/restconf/data (CRUD)"]
+    OPS["/restconf/operations (RPC)"]
+    DISC["/.well-known/host-meta (Discovery)"]
+    ROOT --- DATA
+    ROOT --- OPS
+    ROOT --- DISC
+    subgraph DS["YANG Datastores"]
+        RUN["running"]
+    end
+    CLIENTS2 --> METHODS
+    METHODS --> TLS
+    TLS --> DATA
+    TLS --> OPS
+    DATA --> RUN
+    OPS --> RUN
+    style CLIENTS fill:#0a1628,stroke:#00d4ff,stroke-width:2px
+    style ROOT fill:#0a1628,stroke:#00e676
+    style DS fill:#0c0f17,stroke:#3366ff
+      </pre></div>
+      <h3>2.1 媒体类型</h3>
+      <div class="table-wrap"><table><thead><tr><th>媒体类型</th><th>编码</th><th>用途</th></tr></thead><tbody>
+        <tr><td><code>application/yang-data+json</code></td><td>JSON</td><td>YANG 数据序列化 (推荐)</td></tr>
+        <tr><td><code>application/yang-data+xml</code></td><td>XML</td><td>YANG 数据序列化</td></tr>
+        <tr><td><code>application/yang-patch+json</code></td><td>JSON</td><td>YANG Patch 操作</td></tr>
+      </tbody></table></div>
+    </div></section>
+    <hr class="section-divider">
+
+    <section id="crud" data-section><div class="card reveal">
+      <div class="card-header"><div class="card-icon green">🔧</div><h2>3. HTTP CRUD 操作映射</h2></div>
+      <div class="table-wrap"><table><thead><tr><th>HTTP 方法</th><th>YANG 操作</th><th>描述</th></tr></thead><tbody>
+        <tr><td><strong>GET</strong></td><td>Read</td><td>检索资源 (配置 + 状态)</td></tr>
+        <tr><td><strong>POST</strong></td><td>Create / Invoke</td><td>创建子资源或调用 YANG RPC</td></tr>
+        <tr><td><strong>PUT</strong></td><td>Create or Replace</td><td>创建或完全替换目标资源</td></tr>
+        <tr><td><strong>PATCH</strong></td><td>Merge / YANG Patch</td><td>部分更新或有序批量操作 (RFC 8072)</td></tr>
+        <tr><td><strong>DELETE</strong></td><td>Delete</td><td>删除目标资源</td></tr>
+      </tbody></table></div>
+      <h4>CRUD 示例</h4>
+      <div class="terminal"><div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">RESTCONF curl Examples</span></div>
+        <div class="terminal-body"><span class="comment"># GET -- Read all interfaces</span>
+curl -u admin:admin -H "Accept: application/yang-data+json" \
+  https://192.168.1.1/restconf/data/ietf-interfaces:interfaces
+
+<span class="comment"># POST -- Create Loopback0</span>
+curl -u admin:admin -H "Content-Type: application/yang-data+json" \
+  -X POST https://192.168.1.1/restconf/data/ietf-interfaces:interfaces \
+  -d '{"interface":[{"name":"Loopback0","type":"iana-if-type:softwareLoopback","enabled":true}]}'
+
+<span class="comment"># PATCH -- Update description only</span>
+curl -u admin:admin -H "Content-Type: application/yang-data+json" \
+  -X PATCH https://192.168.1.1/restconf/data/.../interface=Loopback0 \
+  -d '{"interface":[{"description":"Updated"}]}'
+
+<span class="comment"># DELETE -- Remove interface</span>
+curl -u admin:admin -X DELETE \
+  https://192.168.1.1/restconf/data/ietf-interfaces:interfaces/interface=Loopback0
+</div></div>
+    </div></section>
+    <hr class="section-divider">
+
+    <section id="yang" data-section><div class="card reveal">
+      <div class="card-header"><div class="card-icon purple">📐</div><h2>4. YANG 数据模型访问</h2></div>
+      <p>YANG 模型层次直接映射为 RESTCONF URL 路径，list key 使用 <code>=</code> 编码。</p>
+      <h3>4.1 查询参数</h3>
+      <div class="table-wrap"><table><thead><tr><th>参数</th><th>方法</th><th>描述</th></tr></thead><tbody>
+        <tr><td><strong>content</strong></td><td>GET</td><td><code>config</code> / <code>nonconfig</code> / <code>all</code></td></tr>
+        <tr><td><strong>depth</strong></td><td>GET</td><td>限制子树深度: 1 ~ 65535 或 <code>unbounded</code></td></tr>
+        <tr><td><strong>fields</strong></td><td>GET</td><td>只返回指定字段: <code>fields=name;enabled</code></td></tr>
+        <tr><td><strong>with-defaults</strong></td><td>GET</td><td><code>report-all</code> / <code>trim</code> / <code>explicit</code></td></tr>
+        <tr><td><strong>insert</strong></td><td>POST/PUT</td><td>插入位置: <code>first</code> / <code>last</code> / <code>before</code> / <code>after</code></td></tr>
+      </tbody></table></div>
+    </div></section>
+    <hr class="section-divider">
+
+    <section id="patch" data-section><div class="card reveal">
+      <div class="card-header"><div class="card-icon cyan">📋</div><h2>5. YANG Patch (RFC 8072)</h2></div>
+      <p>YANG Patch 是 RESTCONF 独有的<strong>有序批量操作机制</strong>，一次请求执行多个操作:</p>
+      <div class="terminal"><div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">YANG Patch -- Batch Create + Merge + Delete</span></div>
+        <div class="terminal-body">{
+  "ietf-yang-patch:yang-patch": {
+    "patch-id": "batch-1",
+    "edit": [
+      {"edit-id": "1", "operation": "create",
+       "target": "/ietf-interfaces:interfaces/interface=Loopback0",
+       "value": {"interface": [{"name": "Loopback0",
+         "type": "iana-if-type:softwareLoopback"}]}},
+      {"edit-id": "2", "operation": "merge",
+       "target": "/ietf-interfaces:interfaces/interface=Eth1",
+       "value": {"interface": [{"description": "Updated via patch"}]}},
+      {"edit-id": "3", "operation": "delete",
+       "target": "/ietf-interfaces:interfaces/interface=DeprecatedInt"}
+    ]
+  }
+}</div></div>
+    </div></section>
+    <hr class="section-divider">
+
+    <section id="comparison" data-section><div class="card reveal">
+      <div class="card-header"><div class="card-icon amber">⚖️</div><h2>6. 与 NETCONF / gNMI 对比</h2></div>
+      <div class="table-wrap"><table><thead><tr><th>维度</th><th>RESTCONF</th><th>NETCONF</th><th>gNMI</th></tr></thead><tbody>
+        <tr><td><strong>传输</strong></td><td>HTTPS (443)</td><td>SSH (830)</td><td>gRPC/HTTP2</td></tr>
+        <tr><td><strong>序列化</strong></td><td>JSON/XML</td><td>XML</td><td>Protobuf</td></tr>
+        <tr><td><strong>事务支持</strong></td><td>None</td><td>commit/rollback</td><td>None</td></tr>
+        <tr><td><strong>YANG Patch</strong></td><td>RFC 8072</td><td>None</td><td>None</td></tr>
+        <tr><td><strong>流式遥测</strong></td><td>Polling</td><td>Polling</td><td>Subscribe</td></tr>
+        <tr><td><strong>学习曲线</strong></td><td>Low</td><td>Medium</td><td>Medium</td></tr>
+        <tr><td><strong>最佳场景</strong></td><td>Web DevOps CRUD</td><td>Core transactional</td><td>AI fabric telemetry</td></tr>
+      </tbody></table></div>
+    </div></section>
+    <hr class="section-divider">
+
+    <section id="dev" data-section><div class="card reveal">
+      <div class="card-header"><div class="card-icon green">💻</div><h2>7. Java RESTCONF 开发实践</h2></div>
+      <div class="terminal"><div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">RestconfClient.java -- JDK 11+ (zero dependencies)</span></div>
+        <div class="terminal-body"><span class="comment">// RESTCONF client using JDK 11+ java.net.http</span>
+<span class="cmd">import</span> java.net.http.*;
+<span class="cmd">import</span> java.net.URI;
+<span class="cmd">import</span> java.util.Base64;
+
+<span class="cmd">public class</span> <span class="prompt">RestconfClient</span> {
+    <span class="cmd">private final</span> HttpClient client = HttpClient.newHttpClient();
+    <span class="cmd">private final</span> String base = <span class="prompt">"https://192.168.1.1/restconf/data"</span>;
+    <span class="cmd">private final</span> String auth = <span class="prompt">"Basic "</span> + Base64.getEncoder()
+        .encodeToString((<span class="prompt">"admin:admin"</span>).getBytes());
+    <span class="cmd">private static final</span> String JSON = <span class="prompt">"application/yang-data+json"</span>;
+
+    <span class="comment">// GET -- Read resources</span>
+    <span class="cmd">public</span> String get(String path) <span class="cmd">throws</span> Exception {
+        HttpRequest req = HttpRequest.newBuilder()
+            .uri(URI.create(base + path))
+            .header(<span class="prompt">"Authorization"</span>, auth)
+            .header(<span class="prompt">"Accept"</span>, JSON).GET().build();
+        <span class="cmd">return</span> client.send(req, HttpResponse.BodyHandlers.ofString()).body();
+    }
+
+    <span class="comment">// POST -- Create resource or invoke RPC</span>
+    <span class="cmd">public</span> String post(String path, String body) <span class="cmd">throws</span> Exception {
+        HttpRequest req = HttpRequest.newBuilder()
+            .uri(URI.create(base + path))
+            .header(<span class="prompt">"Authorization"</span>, auth)
+            .header(<span class="prompt">"Content-Type"</span>, JSON)
+            .POST(HttpRequest.BodyPublishers.ofString(body)).build();
+        <span class="cmd">return</span> client.send(req, HttpResponse.BodyHandlers.ofString()).body();
+    }
+
+    <span class="comment">// PUT -- Create or replace</span>
+    <span class="cmd">public</span> String put(String path, String body) <span class="cmd">throws</span> Exception {
+        HttpRequest req = HttpRequest.newBuilder()
+            .uri(URI.create(base + path))
+            .header(<span class="prompt">"Authorization"</span>, auth)
+            .header(<span class="prompt">"Content-Type"</span>, JSON)
+            .PUT(HttpRequest.BodyPublishers.ofString(body)).build();
+        <span class="cmd">return</span> client.send(req, HttpResponse.BodyHandlers.ofString()).body();
+    }
+
+    <span class="comment">// PATCH -- Partial update</span>
+    <span class="cmd">public</span> String patch(String path, String body) <span class="cmd">throws</span> Exception {
+        HttpRequest req = HttpRequest.newBuilder()
+            .uri(URI.create(base + path))
+            .header(<span class="prompt">"Authorization"</span>, auth)
+            .header(<span class="prompt">"Content-Type"</span>, JSON)
+            .method(<span class="prompt">"PATCH"</span>, HttpRequest.BodyPublishers.ofString(body)).build();
+        <span class="cmd">return</span> client.send(req, HttpResponse.BodyHandlers.ofString()).body();
+    }
+
+    <span class="comment">// DELETE -- Remove resource</span>
+    <span class="cmd">public</span> String delete(String path) <span class="cmd">throws</span> Exception {
+        HttpRequest req = HttpRequest.newBuilder()
+            .uri(URI.create(base + path))
+            .header(<span class="prompt">"Authorization"</span>, auth).DELETE().build();
+        <span class="cmd">return</span> client.send(req, HttpResponse.BodyHandlers.ofString()).body();
+    }
+
+    <span class="cmd">public static void</span> main(String[] args) <span class="cmd">throws</span> Exception {
+        RestconfClient rc = <span class="cmd">new</span> RestconfClient();
+
+        <span class="comment">// Read all interfaces</span>
+        System.out.println(rc.get(<span class="prompt">"/ietf-interfaces:interfaces"</span>));
+
+        <span class="comment">// Create Loopback0</span>
+        String lb = <span class="prompt">"""{"interface":[{"name":"Loopback0",</span>
+            <span class="prompt">"type":"iana-if-type:softwareLoopback","enabled":true}]}"""</span>;
+        System.out.println(rc.post(<span class="prompt">"/ietf-interfaces:interfaces"</span>, lb));
+
+        <span class="comment">// Update description</span>
+        System.out.println(rc.patch(
+            <span class="prompt">"/ietf-interfaces:interfaces/interface=Loopback0"</span>,
+            <span class="prompt">"""{"interface":[{"description":"Mgmt Loopback"}]}"""</span>));
+    }
+}</div></div>
+      <p><strong>Zero dependencies:</strong> JDK 11+ built-in <code>java.net.http</code> (HTTP/2 + TLS 1.3)</p>
+    </div></section>
+
+    <footer class="site-footer reveal">
+      <span>© 2026 SDN Research</span>
+      <span>CC BY 4.0 · <a href="https://github.com/zhukingliu/sdn-research">GitHub</a></span>
+    </footer>
+  </main>
+</div>
+<script src="assets/js/main.js"></script>
+</body>
+</html>

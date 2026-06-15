@@ -11,6 +11,7 @@ SDN (Software Defined Networking) 技术研究仓库，专注于网络协议与�
 | **TIP OpenWiFi** | [🌐](openwifi.html) | [📝](OpenWiFi-调研报告.md) | 开源企业级 Wi-Fi 系统架构、CloudSDK、APNOS、uCentral 协议、WiFi 7 |
 | **gNMI** | [🌐](gnmi.html) | [📝](gNMI-调研报告.md) | gRPC 网络管理接口、流式遥测、OpenConfig YANG、AI 网络监控 |
 | **NETCONF** | [🌐](netconf.html) | [📝](NETCONF-调研报告.md) | IETF 标准配置协议、YANG 建模、ACID 事务语义、SDN 集成 |
+| **RESTCONF** | [🌐](restconf.html) | [📝](RESTCONF-调研报告.md) | HTTP RESTful YANG 接口、GET/POST/PATCH/DELETE、YANG Patch、Web DevOps |
 | **SNMP** | [🌐](snmp.html) | [📝](SNMP-调研报告.md) | 网络管理基石协议、MIB/OID、v1/v2c/v3、USM/VACM、Java SNMP4J |
 
 ## 🔬 研究方向
