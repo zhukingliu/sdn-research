@@ -673,46 +673,218 @@ sequenceDiagram
         </p>
 
         <h4>数据模型顶层结构</h4>
-        <div class="mermaid-diagram">
-          <pre class="mermaid">
-flowchart TB
-    CONFIG["configuration.json, 设备配置根"]
-
-    CONFIG --> UNIT["unit, 设备基础信息, name and location and timezone"]
-    CONFIG --> IFACES["interfaces[], 接口配置数组"]
-    CONFIG --> SERVICES["services, 系统服务开关"]
-    CONFIG --> METRICS["metrics, 遥测采集策略"]
-    CONFIG --> RAW["config-raw, 原始 UCI 透传"]
-
-    IFACES --> WAN["WAN 口, upstream and PPPoE and DHCP"]
-    IFACES --> LAN["LAN 口, downstream and static IP and DHCP server"]
-    IFACES --> SSIDS["ssids[], WiFi 射频配置"]
-
-    SSIDS --> BAND["wifi-bands, 2G and 5G and 6G"]
-    SSIDS --> BSS["bss-mode, ap and wds-ap and wds-sta and mesh"]
-    SSIDS --> ENC["encryption, wpa2 and wpa3 and psk and sae"]
-    SSIDS --> ROAM["roaming, 802.11k/v/r 参数"]
-
-    SERVICES --> LLDP["lldp"]
-    SERVICES --> SSH["ssh"]
-    SERVICES --> NTP["ntp"]
-    SERVICES --> IGMP["igmp"]
-    SERVICES --> RADIUS["radius-proxy"]
-
-    METRICS --> STATS["statistics"]
-    METRICS --> HEALTH["healthchecks"]
-    METRICS --> DHCP["dhcp-snooping"]
-    METRICS --> FRAMES["wifi-frames"]
-    METRICS --> CRASH["crashlogs"]
-
-    style CONFIG fill:#0a1628,stroke:#00d4ff,stroke-width:2px
-    style UNIT fill:#0a1628,stroke:#3366ff
-    style IFACES fill:#0a1628,stroke:#00e676
-    style SERVICES fill:#0a1628,stroke:#7c3aed
-    style METRICS fill:#0a1628,stroke:#ffab00
-    style RAW fill:#0a1628,stroke:#8899b4
-          </pre>
+        <div class="card" style="margin-bottom:16px; padding:20px 28px;">
+          <ul style="font-family: var(--font-mono); font-size: 0.9rem; line-height: 2; list-style: none; padding-left: 0;">
+            <li><strong style="color:#00d4ff;">configuration.json</strong> — 设备配置根</li>
+            <li style="padding-left: 24px;">├── <strong style="color:#00e676;">unit</strong> — 设备基础信息 <code style="background:rgba(0,230,118,0.08);">{name, location, timezone, hostname}</code></li>
+            <li style="padding-left: 24px;">├── <strong style="color:#00e676;">interfaces[]</strong> — 接口配置数组
+              <ul style="list-style: none; padding-left: 28px;">
+                <li>├── WAN <code style="background:rgba(0,212,255,0.05);">{role: upstream, ipv4, vlan[]}</code></li>
+                <li>├── LAN <code style="background:rgba(0,212,255,0.05);">{role: downstream, dhcp, ssids[]}</code></li>
+                <li>└── <strong>ssids[]</strong>
+                  <ul style="list-style: none; padding-left: 28px;">
+                    <li>├── <code>wifi-bands[]</code>: 2G / 5G / 6G</li>
+                    <li>├── <code>bss-mode</code>: ap / wds-ap / wds-sta / mesh</li>
+                    <li>├── <code>encryption</code>: proto + key + ieee80211w + radius</li>
+                    <li>├── <code>roaming</code>: 802.11k / 802.11v / 802.11r</li>
+                    <li>├── <code>rates</code>: beacon + multicast (kbps)</li>
+                    <li>├── <code>rrm</code>: load-balance + neighbor-reporting</li>
+                    <li>└── <code>qos</code>: wmm + dscp-trust</li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li style="padding-left: 24px;">├── <strong style="color:#7c3aed;">services</strong> — 系统服务
+              <ul style="list-style: none; padding-left: 28px;">
+                <li>├── <code>lldp</code> — 邻居发现</li>
+                <li>├── <code>ssh</code> — 远程管理</li>
+                <li>├── <code>ntp</code> — 时间同步</li>
+                <li>├── <code>igmp</code> — 组播</li>
+                <li>├── <code>rtty</code> — 远程终端</li>
+                <li>├── <code>mdns</code> — 服务发现</li>
+                <li>├── <code>radius-proxy</code> — RADIUS 代理</li>
+                <li>├── <code>wifi-steering</code> — 频段引导</li>
+                <li>└── <code>captive</code> — 强制门户</li>
+              </ul>
+            </li>
+            <li style="padding-left: 24px;">├── <strong style="color:#ffab00;">metrics</strong> — 遥测策略
+              <ul style="list-style: none; padding-left: 28px;">
+                <li>├── <code>statistics</code> — SSID / 客户端 / LLDP 统计</li>
+                <li>├── <code>healthchecks</code> — CPU / 内存 / 温度 / 连通性</li>
+                <li>├── <code>wifi-frames</code> — 802.11 管理帧捕获</li>
+                <li>├── <code>dhcp-snooping</code> — IP-MAC 绑定表</li>
+                <li>└── <code>crashlogs</code> — 崩溃诊断数据</li>
+              </ul>
+            </li>
+            <li style="padding-left: 24px;">└── <strong style="color:#8899b4;">config-raw</strong> — 原始 UCI 透传命令</li>
+          </ul>
         </div>
+
+        <h4>各数据模型完整数据示例</h4>
+
+        <p><strong>unit — 设备基础信息:</strong></p>
+        <div class="terminal"><div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">unit payload</span></div>
+        <div class="terminal-body">{
+  "unit": {
+    "name": "Office-AP-01",
+    "description": "Building A, Floor 3, East Wing",
+    "location": "40.7128,-74.0060",
+    "timezone": "CST-8",
+    "leds-active": true,
+    "random-password": false,
+    "hostname": ["Office-AP-01", "ap01.internal.corp.com"]
+  }
+}</div></div>
+
+        <p><strong>interfaces — WAN 口 (上行):</strong></p>
+        <div class="terminal"><div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">WAN interface payload</span></div>
+        <div class="terminal-body">{
+  "interfaces": [{
+    "name": "WAN",
+    "role": "upstream",
+    "services": ["lldp"],
+    "ethernet": [{
+      "select-ports": ["WAN*"],
+      "speed": 2500,
+      "duplex": "full",
+      "mtu": 1500
+    }],
+    "ipv4": {
+      "addressing": "dynamic",
+      "gateway": "192.168.1.1",
+      "dns": ["8.8.8.8", "1.1.1.1"]
+    },
+    "vlan": [{
+      "id": 10,
+      "proto": "802.1q",
+      "ipv4": { "addressing": "static", "subnet": "10.0.10.2/24" }
+    }]
+  }]
+}</div></div>
+
+        <p><strong>interfaces — LAN 口 + SSID (下行):</strong></p>
+        <div class="terminal"><div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">LAN interface + SSID payload</span></div>
+        <div class="terminal-body">{
+  "interfaces": [{
+    "name": "LAN",
+    "role": "downstream",
+    "services": ["ssh", "lldp"],
+    "ethernet": [{
+      "select-ports": ["LAN1", "LAN2"],
+      "speed": 1000
+    }],
+    "ipv4": {
+      "addressing": "static",
+      "subnet": "192.168.10.1/24",
+      "dhcp": {
+        "lease-first": 10,
+        "lease-count": 100,
+        "lease-time": "6h",
+        "relay": { "server": "192.168.10.5" }
+      }
+    },
+    "ssids": [{
+      "name": "Corporate-WiFi",
+      "wifi-bands": ["5G", "2G", "6G"],
+      "bss-mode": "ap",
+      "hidden-ssid": false,
+      "isolate-clients": false,
+      "power": "auto",
+      "channel": "auto",
+      "channel-width": 80,
+      "country": "CN",
+      "encryption": {
+        "proto": "wpa3",
+        "key": "SecurePass!2026",
+        "ieee80211w": "required",
+        "radius": {
+          "server": "192.168.1.10",
+          "port": 1812,
+          "secret": "RadiusSecret123",
+          "nas-identifier": "Office-AP-01"
+        }
+      },
+      "roaming": {
+        "message-exchange": "ds",
+        "generate-psk": true,
+        "domain-identifier": "corp-wifi",
+        "pmk-r0-key-holder": "AA:BB:CC:DD:EE:FF"
+      },
+      "rates": { "beacon": 6000, "multicast": 24000 },
+      "rrm": {
+        "neighbor-reporting": true,
+        "bss-transition": true,
+        "load-balance": { "max-clients": 50, "rssi-threshold": -75 }
+      },
+      "qos": { "wmm": true, "dscp-trust": true }
+    }]
+  }]
+}</div></div>
+
+        <p><strong>services — 9 种系统服务:</strong></p>
+        <div class="terminal"><div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">services payload</span></div>
+        <div class="terminal-body">{
+  "services": {
+    "lldp": { "enable": true, "describe": "Office-AP" },
+    "ssh": {
+      "enable": true, "port": 22,
+      "password-authentication": false,
+      "authorized-keys": ["ssh-rsa AAAAB3NzaC1yc2E..."]
+    },
+    "ntp": { "enable": true, "server": "ntp.corp.com", "interval": 3600 },
+    "igmp": { "enable": true },
+    "rtty": { "enable": true, "port": 5912, "token": "dev-token-here" },
+    "mdns": { "enable": true, "reflector": false },
+    "radius-proxy": {
+      "enable": true, "server": "192.168.1.10",
+      "port": 1812, "secret": "ProxySecret", "coa": true
+    },
+    "wifi-steering": {
+      "enable": true, "mode": "band-steering", "rssi-threshold": -70
+    },
+    "captive": {
+      "enable": true, "mode": "click-through",
+      "url": "https://portal.corp.com", "session-timeout": "1h"
+    }
+  }
+}</div></div>
+
+        <p><strong>metrics — 5 类遥测策略:</strong></p>
+        <div class="terminal"><div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">metrics payload</span></div>
+        <div class="terminal-body">{
+  "metrics": {
+    "interval": 60,
+    "statistics": {
+      "interval": 60,
+      "types": ["ssids", "lldp", "clients"]
+    },
+    "healthchecks": {
+      "interval": 120,
+      "types": ["cpu", "memory", "temperature", "reachability"]
+    },
+    "wifi-frames": {
+      "interval": 300,
+      "mode": "management",
+      "filter": ["probe-request", "association-request"]
+    },
+    "dhcp-snooping": {
+      "interval": 180,
+      "trusted-ports": ["LAN1"]
+    },
+    "crashlogs": { "enable": true, "max-size": 1048576 }
+  }
+}</div></div>
+
+        <p><strong>config-raw — UCI 透传:</strong></p>
+        <div class="terminal"><div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">config-raw payload</span></div>
+        <div class="terminal-body">{
+  "config-raw": [
+    "uci set wireless.radio0.txpower=20",
+    "uci set network.lan.dns='8.8.8.8 1.1.1.1'",
+    "uci commit",
+    "reload_config"
+  ]
+}</div></div>
 
         <h4>UCI 渲染机制</h4>
         <p>
