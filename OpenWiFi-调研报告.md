@@ -13,6 +13,11 @@
 3. [CloudSDK 云控制器](#3-cloudsdk-云控制器)
 4. [AP 固件与NOS](#4-ap-固件与nos)
 5. [uCentral 通信协议](#5-ucentral-通信协议)
+   - [5.5 设备能力数据模型](#55-设备能力数据模型-capabilities)
+   - [5.6 配置数据模型 (configuration.json)](#56-配置数据模型-configurationjson)
+   - [5.7 状态与遥测数据模型 (state.json)](#57-状态与遥测数据模型-statejson)
+   - [5.8 命令模型 (Commands)](#58-命令模型-commands)
+   - [5.9 JSON Schema 校验与 UCI 渲染](#59-json-schema-校验与-uci-渲染)
 6. [OpenSync 融合层](#6-opensync-融合层)
 7. [WiFi 7 与 OpenWiFi 4.0](#7-wifi-7-与-openwifi-40)
 8. [多厂商互操作性](#8-多厂商互操作性)
@@ -256,6 +261,696 @@ uCentral 是 OpenWiFi 定义的 **AP 设备与云控制器之间的标准管理�
   - WAN 连接方式 (PPPoE、4G/5G APN、静态 IP)
   - 云端控制器重定向地址
   - 手动上传设备证书
+
+### 5.5 设备能力数据模型 (Capabilities)
+
+AP 首次连接到控制器时，必须上报其完整硬件和软件能力。控制器根据能力信息匹配配置模板。
+
+```json
+{
+  "capabilities": {
+    "model": "EAP101",
+    "vendor": "Edgecore",
+    "firmware": "APNOS-2.10.0",
+    "platform": "ipq807x",
+    "radios": [{
+      "band": "5G",
+      "modes": ["HT", "VHT", "HE", "EHT"],
+      "max-width": 160,
+      "channels": [36, 40, 44, 48, 149, 153, 157, 161],
+      "max-clients": 256,
+      "mimo": "4x4:4",
+      "antennas": 4
+    }, {
+      "band": "2G",
+      "modes": ["HT", "VHT", "HE"],
+      "max-width": 40,
+      "channels": [1, 6, 11],
+      "max-clients": 128,
+      "mimo": "2x2:2",
+      "antennas": 2
+    }, {
+      "band": "6G",
+      "modes": ["HE", "EHT"],
+      "max-width": 320,
+      "channels": [37, 53, 69, 85, 101, 117, 149, 181],
+      "max-clients": 256,
+      "mimo": "4x4:4",
+      "antennas": 4
+    }],
+    "interfaces": ["WAN", "LAN"],
+    "ports": {
+      "WAN": {"count": 2, "speed": [1000, 2500, 5000]},
+      "LAN": {"count": 4, "speed": [1000]},
+      "SFP": {"count": 1, "speed": [10000]}
+    },
+    "features": [
+      "wpa3", "passpoint", "openroaming",
+      "wds", "mesh", "802.11k", "802.11v", "802.11r",
+      "ofdma", "mu-mimo", "bss-color"
+    ]
+  }
+}
+```
+
+| 能力字段 | 类型 | 描述 |
+|----------|------|------|
+| `model` | string | 设备型号标识 |
+| `vendor` | string | 厂商名称 |
+| `firmware` | string | 当前固件版本号 |
+| `radios[]` | array | 射频模块列表 |
+| `radios[].band` | enum | 工作频段: `2G` / `5G` / `6G` |
+| `radios[].modes[]` | array | 支持的 Wi-Fi 协议: `HT` (WiFi 4) / `VHT` (WiFi 5) / `HE` (WiFi 6) / `EHT` (WiFi 7) |
+| `radios[].max-width` | int | 最大信道带宽 (MHz): 20/40/80/160/320 |
+| `radios[].mimo` | string | MIMO 配置: `2x2:2` / `4x4:4` |
+| `interfaces[]` | array | 物理接口名称列表 |
+| `ports` | object | 物理端口类型、数量和速率 |
+| `features[]` | array | 支持的功能特性列表 |
+
+---
+
+### 5.6 配置数据模型 (configuration.json)
+
+uCentral 配置数据模型 (定义于 `wlan-ucentral-schema`) 是设备管理的核心，由 **5 个顶层节点** 组成。每个配置变更附带 MD5 哈希值用于一致性校验。
+
+#### 5.6.1 顶层结构
+
+```json
+{
+  "uuid": 1234,
+  "serial": "AABBCCDDEEFF",
+  "hash": "a1b2c3d4e5f6...",
+  "unit": { ... },
+  "interfaces": [ ... ],
+  "services": { ... },
+  "metrics": { ... },
+  "config-raw": { ... }
+}
+```
+
+| 字段 | 必须 | 描述 |
+|------|:----:|------|
+| `uuid` | ✅ | 配置变更序号 (单调递增) |
+| `serial` | ✅ | 设备序列号 (MAC 地址无冒号格式) |
+| `hash` | ✅ | 配置内容 MD5 哈希值 |
+| `unit` | ✅ | 设备基础信息 |
+| `interfaces` | ✅ | 接口配置数组 (WAN + LAN + SSID) |
+| `services` | ❌ | 系统服务开关 |
+| `metrics` | ❌ | 遥测采集策略 |
+| `config-raw` | ❌ | 透传 UCI 原始命令 |
+
+#### 5.6.2 unit — 设备基础信息
+
+```json
+{
+  "unit": {
+    "name": "Office-AP-01",
+    "description": "Building A, Floor 3",
+    "location": "40.7128,-74.0060",
+    "timezone": "CST-8",
+    "leds-active": true,
+    "random-password": false,
+    "hostname": ["Office-AP-01", "ap01.internal"]
+  }
+}
+```
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `name` | string | 设备友好名称 |
+| `description` | string | 设备描述 (位置/用途) |
+| `location` | string | GPS 坐标 `lat,lng` |
+| `timezone` | string | 时区: `CST-8` / `EST5EDT` / `UTC` |
+| `leds-active` | bool | 启用/禁用 LED 指示灯 |
+| `random-password` | bool | 为 root 用户生成随机密码 |
+| `hostname[]` | array | 设备主机名列表 (用于 DNS) |
+
+#### 5.6.3 interfaces — 接口配置
+
+**WAN 口 (上行):**
+
+```json
+{
+  "interfaces": [{
+    "name": "WAN",
+    "role": "upstream",
+    "services": ["lldp"],
+    "ethernet": [{
+      "select-ports": ["WAN*"],
+      "speed": 2500,
+      "duplex": "full",
+      "mtu": 1500
+    }],
+    "ipv4": {
+      "addressing": "dynamic",
+      "gateway": "192.168.1.1",
+      "dns": ["8.8.8.8", "1.1.1.1"]
+    },
+    "vlan": [{
+      "id": 10,
+      "proto": "802.1q",
+      "ipv4": { "addressing": "static", "subnet": "10.0.10.2/24" }
+    }]
+  }]
+}
+```
+
+**LAN 口 + SSID (下行):**
+
+```json
+{
+  "interfaces": [{
+    "name": "LAN",
+    "role": "downstream",
+    "services": ["ssh", "lldp"],
+    "ethernet": [{
+      "select-ports": ["LAN1", "LAN2"],
+      "speed": 1000
+    }],
+    "ipv4": {
+      "addressing": "static",
+      "subnet": "192.168.10.1/24",
+      "dhcp": {
+        "lease-first": 10,
+        "lease-count": 100,
+        "lease-time": "6h",
+        "relay": {"server": "192.168.10.5"}
+      }
+    },
+    "ssids": [{
+      "name": "Corporate-WiFi",
+      "wifi-bands": ["5G", "2G", "6G"],
+      "bss-mode": "ap",
+      "hidden-ssid": false,
+      "isolate-clients": false,
+      "power": "auto",
+      "channel": "auto",
+      "channel-width": 80,
+      "country": "CN",
+      "encryption": {
+        "proto": "wpa3",
+        "key": "SecurePass!2026",
+        "ieee80211w": "required",
+        "radius": {
+          "server": "192.168.1.10",
+          "port": 1812,
+          "secret": "RadiusSecret123",
+          "nas-identifier": "Office-AP-01"
+        }
+      },
+      "roaming": {
+        "message-exchange": "ds",
+        "generate-psk": true,
+        "domain-identifier": "corp-wifi",
+        "pmk-r0-key-holder": "AA:BB:CC:DD:EE:FF"
+      },
+      "rates": {
+        "beacon": 6000,
+        "multicast": 24000
+      },
+      "rrm": {
+        "neighbor-reporting": true,
+        "bss-transition": true,
+        "load-balance": {
+          "max-clients": 50,
+          "rssi-threshold": -75
+        }
+      },
+      "qos": {
+        "wmm": true,
+        "dscp-trust": true
+      }
+    }]
+  }]
+}
+```
+
+#### 5.6.4 接口配置字段详解
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `name` | string | 接口名称: `WAN` / `LAN` |
+| `role` | enum | 接口角色: `upstream` (上行) / `downstream` (下行) |
+| `services[]` | array | 启用的服务: `lldp` / `ssh` / `mdns` |
+| `ethernet[].select-ports[]` | array | 绑定的物理端口, 支持通配符 `WAN*` |
+| `ethernet[].speed` | int | 端口协商速率 (Mbps) |
+| `ethernet[].mtu` | int | 最大传输单元 |
+| `ipv4.addressing` | enum | IP 获取方式: `dynamic` (DHCP) / `static` / `pppoe` |
+| `ipv4.subnet` | cidr | 静态 IP 子网: `192.168.10.1/24` |
+| `ipv4.dhcp.lease-first` | int | DHCP 地址池起始偏移 |
+| `ipv4.dhcp.lease-count` | int | DHCP 地址池大小 |
+| `ipv4.dhcp.lease-time` | duration | 租约时长: `6h` / `24h` / `7d` |
+| `vlan[].id` | int | VLAN ID (1–4094) |
+| `vlan[].proto` | enum | VLAN 封装: `802.1q` / `802.1ad` |
+
+#### 5.6.5 SSID 配置字段详解
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `name` | string | SSID 名称 (1–32 字符) |
+| `wifi-bands[]` | array | 工作频段: `2G` / `5G` / `6G` |
+| `bss-mode` | enum | BSS 模式: `ap` / `wds-ap` / `wds-sta` / `mesh` / `sta` |
+| `hidden-ssid` | bool | 隐藏 SSID (不广播) |
+| `isolate-clients` | bool | 客户端隔离 (禁止 L2 互通) |
+| `power` | int/auto | 发射功率 (dBm), `auto` 为自动调优 |
+| `channel` | int/auto | 工作信道编号, `auto` 为自动选择 |
+| `channel-width` | int | 信道带宽: 20 / 40 / 80 / 160 / 320 (MHz) |
+| `country` | string | 国家代码 (ISO 3166): `CN` / `US` / `DE` |
+| `encryption.proto` | enum | 加密协议: `none` / `psk` / `psk2` / `wpa3` / `wpa3-192` |
+| `encryption.key` | string | 预共享密钥 (8–63 字符) |
+| `encryption.ieee80211w` | enum | PMF 模式: `disabled` / `optional` / `required` |
+| `encryption.radius.server` | ip | RADIUS 认证服务器 IP |
+| `encryption.radius.port` | int | RADIUS 端口 (默认 1812) |
+| `encryption.radius.secret` | string | RADIUS 共享密钥 |
+| `roaming.message-exchange` | enum | 漫游消息交换: `ds` (Distribution System) / `air` |
+| `roaming.generate-psk` | bool | 为每个客户端生成唯一 PSK |
+| `roaming.domain-identifier` | string | 漫游域标识符 (FT 快速漫游用) |
+| `rates.beacon` | int | Beacon 帧速率 (kbps), 影响覆盖范围 |
+| `rates.multicast` | int | 组播/广播速率 (kbps) |
+| `rrm.load-balance.max-clients` | int | 单 SSID 最大客户端数 |
+| `rrm.load-balance.rssi-threshold` | int | 信号强度阈值 (dBm), 低于此值拒绝关联 |
+| `qos.wmm` | bool | Wi-Fi Multimedia 优先级调度 |
+| `qos.dscp-trust` | bool | 信任 IP DSCP 标记到 WMM 映射 |
+
+#### 5.6.6 services — 系统服务
+
+```json
+{
+  "services": {
+    "lldp": {
+      "enable": true,
+      "describe": "Office-AP",
+      "location": {"coordinate": "40.7128,-74.0060"}
+    },
+    "ssh": {
+      "enable": true,
+      "port": 22,
+      "password-authentication": false,
+      "authorized-keys": ["ssh-rsa AAAAB3..."]
+    },
+    "ntp": {
+      "enable": true,
+      "server": "ntp.example.com",
+      "interval": 3600
+    },
+    "igmp": { "enable": true },
+    "rtty": {
+      "enable": true,
+      "port": 5912,
+      "token": "device-token-here"
+    },
+    "mdns": {
+      "enable": true,
+      "reflector": false
+    },
+    "radius-proxy": {
+      "enable": true,
+      "server": "192.168.1.10",
+      "port": 1812,
+      "secret": "ProxySecret",
+      "coa": true
+    },
+    "wifi-steering": {
+      "enable": true,
+      "mode": "band-steering",
+      "rssi-threshold": -70
+    },
+    "captive": {
+      "enable": true,
+      "mode": "click-through",
+      "url": "https://portal.example.com",
+      "session-timeout": "1h",
+      "idle-timeout": "15m"
+    }
+  }
+}
+```
+
+| 服务 | 描述 |
+|------|------|
+| `lldp` | Link Layer Discovery Protocol — 邻居发现 |
+| `ssh` | Secure Shell — 远程管理 (支持密钥认证) |
+| `ntp` | Network Time Protocol — 时间同步 |
+| `igmp` | Internet Group Management Protocol — 组播 |
+| `rtty` | Remote TTY — 远程终端调试 |
+| `mdns` | mDNS — 本地服务发现 |
+| `radius-proxy` | RADIUS 代理 — 转发认证请求 |
+| `wifi-steering` | 频段引导 — 将客户端引导到 5G/6G |
+| `captive` | Captive Portal — 强制认证门户 |
+
+#### 5.6.7 metrics — 遥测采集策略
+
+```json
+{
+  "metrics": {
+    "interval": 60,
+    "statistics": {
+      "interval": 60,
+      "types": ["ssids", "lldp", "clients"]
+    },
+    "healthchecks": {
+      "interval": 120,
+      "types": ["cpu", "memory", "temperature", "reachability"]
+    },
+    "wifi-frames": {
+      "interval": 300,
+      "mode": "management",
+      "filter": ["probe-request", "association-request"]
+    },
+    "dhcp-snooping": {
+      "interval": 180,
+      "trusted-ports": ["LAN1"]
+    },
+    "crashlogs": {
+      "enable": true,
+      "max-size": 1048576
+    }
+  }
+}
+```
+
+| 采集类型 | 默认间隔 | 描述 |
+|----------|:------:|------|
+| `statistics` | 60s | SSID 统计 / LLDP 邻居 / 客户端列表 |
+| `healthchecks` | 120s | CPU / 内存 / 温度 / 网络连通性 |
+| `wifi-frames` | 300s | 802.11 管理帧捕获 |
+| `dhcp-snooping` | 180s | IP-MAC 绑定表 (客户端指纹) |
+| `crashlogs` | 事件驱动 | 崩溃后自动上传诊断数据 |
+
+---
+
+### 5.7 状态与遥测数据模型 (state.json)
+
+AP 定期向控制器上报状态信息。控制器通过 REST API 可查询 `state`、`statistics`、`healthchecks`、`capabilities` 等端点。
+
+#### 5.7.1 设备状态 (state)
+
+```json
+{
+  "state": {
+    "serial": "AABBCCDDEEFF",
+    "uuid": 1234,
+    "hash": "a1b2c3d4e5f6...",
+    "state": "configured",
+    "connected": true,
+    "uptime": 864000,
+    "firmware": "APNOS-2.10.0",
+    "last-contact": 1718000000,
+    "version": "2.10.0",
+    "connection": {
+      "protocol": "ws",
+      "port": 15002,
+      "since": 1717900000,
+      "reconnects": 0
+    }
+  }
+}
+```
+
+| 字段 | 描述 |
+|------|------|
+| `state` | 设备状态: `configured` / `upgrading` / `mismatch` / `provisioning` / `disconnected` |
+| `connected` | WebSocket 连接状态 |
+| `uptime` | 设备运行时间 (秒) |
+| `hash` | 当前生效的配置哈希 (与控制器下发比对) |
+| `last-contact` | 最后通信时间戳 (Unix epoch) |
+| `reconnects` | 重连次数 |
+
+#### 5.7.2 统计遥测 (statistics)
+
+```json
+{
+  "statistics": {
+    "timestamp": 1718000000,
+    "ssids": [{
+      "name": "Corporate-WiFi",
+      "radio": "5G",
+      "channel": 36,
+      "channel-width": 80,
+      "frequency": 5180,
+      "clients": 47,
+      "tx-bytes": 482910482,
+      "rx-bytes": 128394022,
+      "tx-packets": 3910234,
+      "rx-packets": 981234,
+      "tx-errors": 12,
+      "rx-errors": 3,
+      "tx-retries": 234,
+      "noise": -92,
+      "channel-utilization": 34.5,
+      "air-time": {"tx": 28.3, "rx": 15.7, "busy": 34.5, "free": 21.5}
+    }],
+    "lldp": [{
+      "port": "LAN1",
+      "peer-name": "Core-Switch-01",
+      "peer-mac": "11:22:33:44:55:66",
+      "peer-port": "Gi1/0/1",
+      "peer-description": "Core Switch"
+    }],
+    "clients": [{
+      "mac": "AA:BB:CC:DD:EE:FF",
+      "ssid": "Corporate-WiFi",
+      "radio": "5G",
+      "ip": "192.168.10.55",
+      "rssi": -48,
+      "snr": 42,
+      "rx-rate": 866,
+      "tx-rate": 650,
+      "rx-bytes": 1024000,
+      "tx-bytes": 512000,
+      "connected": 3600,
+      "mode": "802.11ac",
+      "mimo": "2x2",
+      "wmm": true,
+      "power-save": false
+    }]
+  }
+}
+```
+
+#### 5.7.3 健康检查遥测 (healthchecks)
+
+```json
+{
+  "healthchecks": {
+    "timestamp": 1718000000,
+    "sanity": 100,
+    "cpu": {
+      "user": 12.3,
+      "system": 4.7,
+      "nice": 0.1,
+      "idle": 82.9,
+      "load": [1.2, 0.8, 0.6]
+    },
+    "memory": {
+      "total": 524288,
+      "free": 131072,
+      "used": 393216,
+      "buffers": 32768,
+      "cached": 98304,
+      "used-percent": 75.0
+    },
+    "temperature": {
+      "cpu": 52,
+      "radio-5g": 58,
+      "radio-2g": 45,
+      "board": 42
+    },
+    "disk": {
+      "total": 262144,
+      "free": 131072,
+      "used": 131072,
+      "used-percent": 50.0
+    },
+    "reachability": {
+      "gateway": true,
+      "dns": true,
+      "controller": true
+    }
+  }
+}
+```
+
+| 指标 | 描述 |
+|------|------|
+| `sanity` | 综合健康分数 (0–100, 100=完全健康) |
+| `cpu.user/system/idle` | CPU 使用率百分比 |
+| `cpu.load[]` | 1/5/15 分钟负载均值 |
+| `memory.total/free/used` | 内存统计 (KB) |
+| `temperature.cpu/radio-5g/radio-2g/board` | 各组件温度 (°C) |
+| `reachability.gateway/dns/controller` | 连通性检测 |
+
+#### 5.7.4 WiFi 帧捕获 (wifi-frames)
+
+```json
+{
+  "wifi-frames": {
+    "timestamp": 1718000000,
+    "frames": [{
+      "type": "probe-request",
+      "mac": "AA:BB:CC:DD:EE:FF",
+      "ssid": "Corporate-WiFi",
+      "radio": "5G",
+      "rssi": -55,
+      "frequency": 5180
+    }, {
+      "type": "association-request",
+      "mac": "11:22:33:44:55:66",
+      "ssid": "Corporate-WiFi",
+      "radio": "5G",
+      "rssi": -42
+    }]
+  }
+}
+```
+
+#### 5.7.5 DHCP Snooping
+
+```json
+{
+  "dhcp-snooping": {
+    "timestamp": 1718000000,
+    "bindings": [{
+      "mac": "AA:BB:CC:DD:EE:FF",
+      "ip": "192.168.10.55",
+      "hostname": "laptop-01",
+      "port": "LAN1",
+      "vlan": 10,
+      "lease-time": 86400,
+      "server": "192.168.10.1"
+    }]
+  }
+}
+```
+
+#### 5.7.6 崩溃日志 (crashlogs)
+
+```json
+{
+  "crashlogs": {
+    "timestamp": 1718000000,
+    "reason": "kernel-panic",
+    "stack-trace": "Kernel panic - not syncing: Fatal exception...",
+    "log": "[  123.456] BUG: unable to handle kernel NULL pointer...",
+    "firmware": "APNOS-2.10.0",
+    "kernel": "Linux 5.15.120",
+    "uptime": 3600
+  }
+}
+```
+
+---
+
+### 5.8 命令模型 (Commands)
+
+控制器可通过 uCentral 向设备发送命令。命令通过 `command` 数组下发，设备按顺序执行并返回结果。
+
+```json
+{
+  "serial": "AABBCCDDEEFF",
+  "commands": [{
+    "type": "reboot",
+    "when": 0,
+    "details": {}
+  }, {
+    "type": "upgrade",
+    "when": 0,
+    "details": {
+      "uri": "https://firmware.example.com/apnos-2.11.0.bin",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb924...",
+      "keep-config": true
+    }
+  }, {
+    "type": "trace",
+    "when": 0,
+    "details": {
+      "interface": "LAN",
+      "duration": 60,
+      "max-packets": 1000,
+      "filter": "port 80"
+    }
+  }]
+}
+```
+
+| 命令 | 描述 | 关键参数 |
+|------|------|----------|
+| `reboot` | 重启设备 | `when`: 延迟秒数 |
+| `factory` | 恢复出厂设置 | `keep-ip`: 保留网络配置 |
+| `upgrade` | OTA 固件升级 | `uri` (固件 URL) / `sha256` (校验) / `keep-config` |
+| `trace` | 远程抓包 | `interface` / `duration` / `filter` (BPF) |
+| `leds` | LED 闪烁定位 | `pattern` / `duration` |
+| `script` | 执行自定义脚本 | `script` (base64) |
+| `request` | 主动请求遥测 | `state` / `statistics` / `healthchecks` |
+
+---
+
+### 5.9 JSON Schema 校验与 UCI 渲染
+
+#### 5.9.1 校验流程
+
+```
+Controller                        AP (uCentral Agent)
+    │                                   │
+    │  ── configure(JSON + hash) ──▶   │
+    │                                   ├─ 1. 解析 JSON
+    │                                   ├─ 2. JSON Schema 校验
+    │                                   │     ├─ 通过 → 继续
+    │                                   │     └─ 失败 → 返回 ERROR
+    │                                   ├─ 3. ucode 模板渲染 → UCI 批次
+    │                                   ├─ 4. uci commit + reload_config
+    │                                   ├─ 5. 计算应用后哈希
+    │                                   └─ 6. 对比下发哈希
+    │                                         ├─ 匹配 → state: "configured"
+    │                                         └─ 不匹配 → state: "mismatch"
+    │  ◀── state(configured/mismatch) ──│
+```
+
+#### 5.9.2 ucode 模板示例 (wlan-ucentral-schema)
+
+ucode 是 OpenWrt 的 JavaScript-like 模板引擎，uCentral 用它实现 JSON → UCI 的渲染：
+
+```javascript
+// /usr/share/ucentral/unit.utpl — 渲染 unit 配置
+{%=  let cfg = ctx.unit %}
+{%=  if (cfg.name) uci.set('system.@system[0].hostname', cfg.name) %}
+{%=  if (cfg.location) uci.set('system.@system[0].location', cfg.location) %}
+{%=  if (cfg.timezone) uci.set('system.@system[0].timezone', cfg.timezone) %}
+
+// /usr/share/ucentral/ssid.utpl — 渲染 SSID 配置
+{%=  for (let i = 0; i < ctx.ssids.length; i++) %}
+{%=    let ssid = ctx.ssids[i] %}
+{%=    let idx = uci.add('wireless', 'wifi-iface') %}
+{%=    uci.set(`wireless.@wifi-iface[${idx}].ssid`, ssid.name) %}
+{%=    uci.set(`wireless.@wifi-iface[${idx}].encryption`, ssid.encryption.proto) %}
+{%=    if (ssid.encryption.key) uci.set(`wireless.@wifi-iface[${idx}].key`, ssid.encryption.key) %}
+{%=    if (ssid.roaming) uci.set(`wireless.@wifi-iface[${idx}].ieee80211r`, '1') %}
+
+// 渲染结果 (UCI 批次命令):
+// uci set wireless.@wifi-iface[0].ssid='Corporate-WiFi'
+// uci set wireless.@wifi-iface[0].encryption='sae'
+// uci commit wireless
+// reload_config
+```
+
+#### 5.9.3 配置哈希校验机制
+
+```javascript
+// Controller 端
+config_json = build_configuration(device_capabilities)
+config_hash = md5(JSON.stringify(config_json))
+send_to_device(config_json, config_hash)
+
+// AP 端 (uCentral Agent)
+received = parse_websocket_message()
+actual_json = render_uci_and_read_back()  // 应用后读回实际生效配置
+actual_hash = md5(JSON.stringify(actual_json))
+if (actual_hash === received.hash) {
+    report_state("configured", actual_hash)
+} else {
+    report_state("mismatch", actual_hash)  // 触发 Controller 重发
+}
+```
 
 ---
 
